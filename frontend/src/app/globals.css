@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   Tendero · dirección "Rótulo"
+   Esmalte de letrero sobre papel.
+   ───────────────────────────────────────────── */
+:root {
+  --papel: #fbfbf9;      /* canvas de trabajo, cálido casi-blanco */
+  --tinta: #16181d;      /* casi-negro azulado, texto */
+  --azulon: #173f8a;     /* azul esmalte, marca/primario */
+  --achiote: #e8552b;    /* bermellón cálido, acción/CTA */
+  --niebla: #e4e1da;     /* bordes, separadores */
+  --grafito: #5c5f66;    /* texto secundario */
+
+  --background: var(--papel);
+  --foreground: var(--tinta);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-papel: var(--papel);
+  --color-tinta: var(--tinta);
+  --color-azulon: var(--azulon);
+  --color-achiote: var(--achiote);
+  --color-niebla: var(--niebla);
+  --color-grafito: var(--grafito);
+
+  --font-display: var(--font-bricolage);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-spline-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Numerales tabulares para cifras/precios (clave en un POS). */
+.tabular {
+  font-family: var(--font-mono), monospace;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animaciones de carga (login). Se desactivan con prefers-reduced-motion. */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes grow {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
