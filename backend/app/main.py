@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, health
+from app.routers import auth, health, inventory, products, suppliers
 
 app = FastAPI(title="Tendero API", version="0.0.0")
 
@@ -19,3 +19,6 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(suppliers.router)
+app.include_router(products.router)
+app.include_router(inventory.router)

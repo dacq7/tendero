@@ -117,10 +117,15 @@ def _engine() -> Engine:
 
 @pytest.fixture(autouse=True)
 def _truncate(_engine: Engine):
-    """Deja la tabla `users` vacía tras cada test (aislamiento entre tests)."""
+    """Vacía las tablas tras cada test (aislamiento). CASCADE cubre las FKs."""
     yield
     with _engine.connect() as conn:
-        conn.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
+        conn.execute(
+            text(
+                "TRUNCATE TABLE inventory_movements, products, suppliers, users "
+                "RESTART IDENTITY CASCADE"
+            )
+        )
         conn.commit()
 
 
@@ -154,3 +159,37 @@ def admin_user(session: Session) -> User:
         hashed_password=hash_password(ADMIN_PASSWORD),
         role=UserRole.admin,
     )
+
+
+# Credenciales del cajero sembrado para los tests (solo entorno de pruebas).
+CAJERO_EMAIL = "cajero@test.co"
+CAJERO_PASSWORD = "Caja1234!"
+
+
+@pytest.fixture
+def cajero_user(session: Session) -> User:
+    """Cajero sembrado: rol de solo-consulta en inventario."""
+    return user_repository.create(
+        session,
+        email=CAJERO_EMAIL,
+        full_name="Cajero Test",
+        hashed_password=hash_password(CAJERO_PASSWORD),
+        role=UserRole.cajero,
+    )
+
+
+def auth_headers(client: TestClient, email: str, password: str) -> dict[str, str]:
+    """Hace login y devuelve el header Authorization con el access token."""
+    res = client.post("/auth/login", json={"email": email, "password": password})
+    res.raise_for_status()
+    return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
+@pytest.fixture
+def admin_headers(client: TestClient, admin_user: User) -> dict[str, str]:
+    return auth_headers(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+
+
+@pytest.fixture
+def cajero_headers(client: TestClient, cajero_user: User) -> dict[str, str]:
+    return auth_headers(client, CAJERO_EMAIL, CAJERO_PASSWORD)

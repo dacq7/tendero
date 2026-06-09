@@ -19,6 +19,18 @@ por `/feature`.
   con sufijo `_test` (obligatorio). Patrón: `backend/tests/conftest.py`.
 - **Frontend**: `cd frontend && npm test` (Vitest + Testing Library, jsdom).
 
+## Fase 1 — Inventario (backend COMPLETO; frontend pendiente)
+- Modelos: `Supplier`, `Product`, `InventoryMovement` (kardex). Enums `IvaRate`
+  (exento/0/5/19), `ProductUnit`, `MovementType`.
+- **Decisiones bloqueadas**: costeo = **promedio ponderado (CMP)** en `services/costing.py`;
+  stock **persistido** y mutado SOLO por `inventory_service.apply_movement` (kardex
+  auditable con `stock_resultante`); IVA = **enum cerrado**; cantidades en **milésimas**
+  enteras (1000 = 1 unidad), dinero en **centavos**. Márgenes en **bps enteros** (no float).
+- Stock con `SELECT FOR UPDATE` (`product_service.get_locked`) para evitar carreras.
+  Entrada de mercancía multilínea **atómica** (un solo commit). Permisos: admin escribe,
+  cajero consulta. Endpoints bajo `/products`, `/suppliers`, `/inventory`.
+- Migración `c025802323ed`. 47 tests (alta cobertura en dinero/stock/permisos).
+
 ## Puertos (fijados para esta máquina; NO cambiar sin actualizar este archivo)
 - Postgres (Docker): **5436**
 - Backend (FastAPI):  **8020**
