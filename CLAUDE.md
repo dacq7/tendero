@@ -105,3 +105,28 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
 - Login: tras auth OK solo deja tokens en memoria (TODO marcado en
   `frontend/src/app/login/page.tsx`). Sesión real (cookie httpOnly + refresh) y
   redirección a "Vender" son Fase 2.
+
+## Contexto de portafolio (orienta Fases 3-6)
+Este es un proyecto de PORTAFOLIO. No habrá credenciales reales de Wompi, del PT de
+facturación, ni cuentas pagas. El objetivo es demostrar dominio profesional, no operar
+un comercio real. En consecuencia:
+
+- **Integraciones externas (Wompi, FiscalProvider): el modo `mock` es el camino
+  principal de demostración.** Los mocks deben simular el flujo COMPLETO y realista:
+  estados (pending → accepted/rejected), CUFE/referencia simulados, webhook entrante
+  que actualiza estado de forma idempotente, firma de integridad calculada (contra un
+  secreto de prueba). Que se vea el flujo de mostrador entero de principio a fin.
+- **La implementación `real` (RealWompiProvider, RealFiscalProvider) debe EXISTIR y
+  estar bien diseñada** (mapea al API real, llave privada solo en servidor, conmutable
+  por env var), pero no se ejecuta sin credenciales. Lo que demuestra seniority es la
+  calidad de la interfaz/adaptador, no tener la llave.
+- **No prometer validez fiscal.** Dejar claro (README/UI) que la emisión real requiere
+  habilitación del comercio ante la DIAN y un PT autorizado. El software está *listo
+  para integrarse*.
+- **Seed de datos de demostración (importante para Fase 5):** crear un seed que genere
+  cientos de ventas ficticias repartidas en semanas/meses, con variedad de productos,
+  métodos de pago, cajeros y horas, para que el dashboard de analítica (márgenes,
+  ticket promedio, rotación, horas pico, series temporales) se vea POBLADO y creíble,
+  no vacío. Un comando idempotente, separado del seed del admin.
+- **Deploy (Fase 6): preferir planes gratuitos** (Vercel free + Railway free) para
+  tener un enlace en vivo. Si no es viable, documentar arranque local impecable.
