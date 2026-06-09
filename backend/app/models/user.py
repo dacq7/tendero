@@ -1,11 +1,12 @@
 """Modelo de usuario: dueño (admin) y operador de mostrador (cajero)."""
-from datetime import datetime, timezone
-from enum import Enum
+
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from sqlmodel import Field, SQLModel
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     admin = "admin"
     cajero = "cajero"
 
@@ -20,6 +21,6 @@ class User(SQLModel, table=True):
     role: UserRole = Field(default=UserRole.cajero)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         nullable=False,
     )

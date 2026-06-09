@@ -8,6 +8,8 @@ certifi==2026.5.20
 cffi==2.0.0
 click==8.4.1
 coverage==7.14.1
+dnspython==2.8.0
+email-validator==2.3.0
 fastapi==0.136.3
 greenlet==3.5.1
 h11==0.16.0
