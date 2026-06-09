@@ -1,0 +1,40 @@
+# Python / backend
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js / frontend
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.turbo/
+coverage/
+
+# Entorno / secretos (NUNCA al repo)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# Docker
+*.pid
+
+# OS / editores
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
