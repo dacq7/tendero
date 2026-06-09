@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tendero_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tendero
+      POSTGRES_PASSWORD: tendero
+      POSTGRES_DB: tendero
+    ports:
+      - "5436:5432"
+    volumes:
+      - tendero_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tendero -d tendero"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tendero_pgdata:
