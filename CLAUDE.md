@@ -117,6 +117,10 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
 - Login: tras auth OK solo deja tokens en memoria (TODO marcado en
   `frontend/src/app/login/page.tsx`). Sesión real (cookie httpOnly + refresh) y
   redirección a "Vender" son Fase 2.
+- **UI de Inventario diferida a Fase 2 (decidido con el usuario)**: el backend de
+  Fase 1 está completo, pero las pantallas (lista/kardex/formularios/proveedores/
+  entrada/alertas) se construirán en Fase 2 sobre la sesión real, para no fabricar
+  plomería de auth desechable. Endpoints listos: `/products`, `/suppliers`, `/inventory`.
 
 ## Contexto de portafolio (orienta Fases 3-6)
 Este es un proyecto de PORTAFOLIO. No habrá credenciales reales de Wompi, del PT de
