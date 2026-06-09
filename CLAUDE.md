@@ -6,8 +6,18 @@ suposición tuya, **gana esto** — son decisiones ya tomadas y verificadas en F
 
 ## Estado
 Fase 0 (Cimientos) COMPLETA: monorepo, Docker Postgres, FastAPI en capas, Alembic,
-auth con roles, y frontend base con la pantalla de login. Las siguientes fases
-siguen el orden de la sección 9 del brief, una por `/feature`.
+auth con roles, frontend base con la pantalla de login, y (sub-fase 0.7) tests base
++ docs. Backend con pytest contra base aislada `tendero_test` (migraciones reales,
+no `create_all`); frontend con Vitest sobre el login; `README.md` con arranque
+end-to-end. Las siguientes fases siguen el orden de la sección 9 del brief, una
+por `/feature`.
+
+## Tests
+- **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
+  Requiere Docker arriba. Usa base SEPARADA `tendero_test` (DROP/CREATE por sesión,
+  `alembic upgrade head`). URL desde `TEST_DATABASE_URL` o derivada de `DATABASE_URL`
+  con sufijo `_test` (obligatorio). Patrón: `backend/tests/conftest.py`.
+- **Frontend**: `cd frontend && npm test` (Vitest + Testing Library, jsdom).
 
 ## Puertos (fijados para esta máquina; NO cambiar sin actualizar este archivo)
 - Postgres (Docker): **5436**
@@ -89,6 +99,9 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
   (queda huérfano en un rollback). Caso de borde; arreglo de una línea si surge.
 - `npm audit` reporta 2 vulnerabilidades moderate (dev). Revisar en Fase 6
   (hardening). NUNCA correr `npm audit fix --force` a ciegas.
+- Hardening Fase 6: `app/core/config.py` tiene defaults hardcodeados para
+  `database_url` y `jwt_secret`. Arrancar sin `.env` usa credenciales conocidas en
+  silencio. Hacerlos campos requeridos (sin default) para que falle ruidosamente.
 - Login: tras auth OK solo deja tokens en memoria (TODO marcado en
   `frontend/src/app/login/page.tsx`). Sesión real (cookie httpOnly + refresh) y
   redirección a "Vender" son Fase 2.

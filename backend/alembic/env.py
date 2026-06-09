@@ -1,17 +1,24 @@
 """Entorno de migraciones Alembic (síncrono), conectado a la config de la app."""
+
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-from app.core.config import settings
 import app.models  # noqa: F401  — registra los modelos en SQLModel.metadata
+from alembic import context
+from app.core.config import settings
 
 config = context.config
 
-# La URL viene de nuestra config (env), nunca del alembic.ini.
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# La URL viene de nuestra config (env), nunca del alembic.ini. Si quien invoca
+# Alembic ya fijó una URL real en la Config (p. ej. los tests, que apuntan a la
+# base `tendero_test`), se respeta; el `alembic.ini` solo trae un placeholder
+# `driver://...`. Así los tests no necesitan mutar el singleton `settings`.
+_url = config.get_main_option("sqlalchemy.url")
+if not _url or _url.startswith("driver://"):
+    _url = settings.database_url
+config.set_main_option("sqlalchemy.url", _url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
