@@ -152,65 +152,86 @@ COBERTURA_MESES = 2
 STOCK_MINIMO_BUFFER = 20_000  # piso de reposición (~20 unidades)
 
 
-def _wipe_demo(session: Session) -> None:
-    """Borra el dataset de demo (orden de FKs). Idempotencia: borra-y-recrea.
+# Sub-SELECT de las VENTAS a eliminar: las de cajeros demo Y cualquier venta que
+# referencie un producto demo. Esto último cubre ventas NO-demo (p. ej. pruebas
+# manuales) que apuntan a productos demo: como `sale_items.product_id` es RESTRICT,
+# bloquearían el borrado de productos. seed_demo solo corre en entornos NO-producción
+# (guarda APP_ENV), donde esos datos son desechables, así que se eliminan ENTERAS
+# (con su cadena de dependientes) para no dejar FKs colgando ni filas corruptas.
+# SQL 100% literal estático; los valores van SIEMPRE como parámetros ligados (:p, :s).
+_VENTAS_A_BORRAR = (
+    "SELECT id FROM sales "
+    "WHERE user_id IN (SELECT id FROM users WHERE email LIKE :p) "
+    "OR id IN (SELECT sale_id FROM sale_items "
+    "WHERE product_id IN (SELECT id FROM products WHERE sku LIKE :s))"
+)
 
-    Todo el SQL es literal estático con parámetros ligados (:p, :s, :n); NUNCA se
-    concatena/interpola entrada en la cadena (sin riesgo de inyección)."""
-    # Antes que sales: emisiones fiscales y pagos cuelgan de invoices/sales (RESTRICT).
+
+def _wipe_demo(session: Session) -> None:
+    """Borra el dataset de demo respetando las FKs (hijos antes que padres).
+    Idempotencia: borra-y-recrea. Cada fila se identifica por su marcador
+    (demo./DEMO-); las ventas que referencian productos demo se incluyen para que
+    el borrado de productos (RESTRICT) nunca quede bloqueado.
+
+    Orden FK-seguro:
+      fiscal_emissions → payments → invoices → sales (CASCADE borra sale_items) →
+      inventory_movements → products → suppliers → cash_register_sessions → users
+
+    NO se borran sale_items por separado: hacerlo ANTES de las ventas vaciaría el
+    predicado (una venta deja de "referenciar un producto demo" y sobreviviría
+    huérfana). `sale_items.sale_id` es ON DELETE CASCADE, así que el borrado de las
+    ventas limpia sus líneas — incluidas las que apuntan a productos demo.
+
+    Todo el SQL es literal estático con parámetros ligados; NUNCA se interpola
+    entrada (sin riesgo de inyección)."""
+    p = {"p": f"{DEMO_EMAIL_PREFIX}%", "s": f"{DEMO_SKU_PREFIX}%"}
+
+    # 1) fiscal_emissions cuelga de invoices (RESTRICT) → primero.
     session.exec(
         text(
             "DELETE FROM fiscal_emissions WHERE invoice_id IN "
-            "(SELECT id FROM invoices WHERE sale_id IN "
-            "(SELECT id FROM sales WHERE user_id IN "
-            "(SELECT id FROM users WHERE email LIKE :p)))"
+            "(SELECT id FROM invoices WHERE sale_id IN (" + _VENTAS_A_BORRAR + "))"
         ),
-        params={"p": f"{DEMO_EMAIL_PREFIX}%"},
+        params=p,
     )
+    # 2) payments cuelga de sales (RESTRICT).
     session.exec(
-        text(
-            "DELETE FROM payments WHERE sale_id IN "
-            "(SELECT id FROM sales WHERE user_id IN "
-            "(SELECT id FROM users WHERE email LIKE :p))"
-        ),
-        params={"p": f"{DEMO_EMAIL_PREFIX}%"},
+        text("DELETE FROM payments WHERE sale_id IN (" + _VENTAS_A_BORRAR + ")"),
+        params=p,
     )
+    # 3) invoices cuelga de sales (RESTRICT).
     session.exec(
-        text(
-            "DELETE FROM invoices WHERE sale_id IN "
-            "(SELECT id FROM sales WHERE user_id IN "
-            "(SELECT id FROM users WHERE email LIKE :p))"
-        ),
-        params={"p": f"{DEMO_EMAIL_PREFIX}%"},
+        text("DELETE FROM invoices WHERE sale_id IN (" + _VENTAS_A_BORRAR + ")"),
+        params=p,
     )
-    session.exec(
-        text("DELETE FROM sales WHERE user_id IN (SELECT id FROM users WHERE email LIKE :p)"),
-        params={"p": f"{DEMO_EMAIL_PREFIX}%"},
-    )
+    # 4) sales: el predicado se evalúa con los sale_items aún presentes (para
+    #    capturar las ventas que referencian productos demo); la CASCADE de
+    #    sale_items.sale_id borra sus líneas, liberando la FK hacia products.
+    session.exec(text("DELETE FROM sales WHERE id IN (" + _VENTAS_A_BORRAR + ")"), params=p)
+    # 5) inventory_movements cuelga de products (RESTRICT).
     session.exec(
         text(
             "DELETE FROM inventory_movements WHERE product_id IN "
             "(SELECT id FROM products WHERE sku LIKE :s)"
         ),
-        params={"s": f"{DEMO_SKU_PREFIX}%"},
+        params={"s": p["s"]},
     )
+    # 6) products (ya sin sale_items ni movimientos que lo referencien).
+    session.exec(text("DELETE FROM products WHERE sku LIKE :s"), params={"s": p["s"]})
+    # 7) suppliers DESPUÉS de products (FK products.supplier_id, RESTRICT).
+    session.exec(
+        text("DELETE FROM suppliers WHERE nit LIKE :n"), params={"n": f"{DEMO_NIT_PREFIX}%"}
+    )
+    # 8) cash_register_sessions: ya sin sales que la referencien (RESTRICT).
     session.exec(
         text(
             "DELETE FROM cash_register_sessions WHERE user_id IN "
             "(SELECT id FROM users WHERE email LIKE :p)"
         ),
-        params={"p": f"{DEMO_EMAIL_PREFIX}%"},
+        params={"p": p["p"]},
     )
-    session.exec(
-        text("DELETE FROM products WHERE sku LIKE :s"), params={"s": f"{DEMO_SKU_PREFIX}%"}
-    )
-    # Proveedores DESPUÉS de productos (FK products.supplier_id).
-    session.exec(
-        text("DELETE FROM suppliers WHERE nit LIKE :n"), params={"n": f"{DEMO_NIT_PREFIX}%"}
-    )
-    session.exec(
-        text("DELETE FROM users WHERE email LIKE :p"), params={"p": f"{DEMO_EMAIL_PREFIX}%"}
-    )
+    # 9) users demo (ya sin sales ni cajas que los referencien).
+    session.exec(text("DELETE FROM users WHERE email LIKE :p"), params={"p": p["p"]})
     session.commit()
 
 
