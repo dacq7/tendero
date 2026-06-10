@@ -35,6 +35,7 @@ describe("CajaPage", () => {
       if (path === "cash/sessions/5")
         return { ...SESSION, totales_por_metodo: { efectivo: 30000000, tarjeta: 20000000 } };
       if (path.startsWith("sales?cash_session_id")) return [{ id: 1 }, { id: 2 }]; // 2 ventas
+      if (path === "cash/sessions") return []; // historial de cajas
       return null;
     });
 

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { REFRESH_COOKIE } from "@/lib/auth-config";
 
-const PROTECTED = ["/vender", "/caja", "/inventario", "/historial", "/analitica"];
+const PROTECTED = ["/vender", "/caja", "/inventario", "/historial", "/facturacion", "/analitica"];
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -38,6 +38,7 @@ export const config = {
     "/caja/:path*",
     "/inventario/:path*",
     "/historial/:path*",
+    "/facturacion/:path*",
     "/analitica/:path*",
     "/login",
   ],

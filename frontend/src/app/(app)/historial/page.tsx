@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ApiError, apiGet, apiPost } from "@/lib/api";
@@ -106,7 +107,9 @@ export default function HistorialPage() {
                 return (
                   <tr key={inv.id}>
                     <td className="tabular px-4 py-2 font-medium text-tinta">
-                      {inv.numero_completo}
+                      <Link href={`/historial/${inv.sale_id}`} className="text-azulon hover:underline">
+                        {inv.numero_completo}
+                      </Link>
                       {inv.cufe && (
                         <span className="tabular block max-w-[10rem] truncate text-[10px] text-grafito">
                           CUFE {inv.cufe}

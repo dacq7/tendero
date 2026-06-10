@@ -9,8 +9,10 @@ Fases 0-5 COMPLETAS (todas las de negocio). Fase 0: cimientos + tests base/docs
 (0.7). Fase 1: Inventario. Fase 2: Ventas + Caja + Factura interna (con frontend,
 sesión real). Fase 3: Pagos Wompi sandbox (mock de demo). Fase 4: Facturación DIAN
 (mock → PT). Fase 5: Analítica (seed de demo + agregaciones + dashboard). Fase 6 parte A
-(corrección de bugs de Vender/Caja) COMPLETA. Queda la Fase 6 parte B (e2e
-Playwright, hardening de seguridad, deploy) — ver Pendientes.
+(bugs de Vender/Caja) y parte A.2 (UI de admin completa: inventario CRUD,
+movimientos, proveedores, kardex, detalle de venta, resoluciones DIAN, historial
+de cajas) COMPLETAS. Queda la Fase 6 parte B (e2e Playwright, hardening de
+seguridad, deploy) — ver Pendientes.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
@@ -95,6 +97,20 @@ Playwright, hardening de seguridad, deploy) — ver Pendientes.
 - **Vender más rápida**: grilla de productos por defecto (toque sin buscar) +
   búsqueda instantánea con debounce. `pesosToCentavos` (caja) redondea a peso entero
   antes de ×100 (sin float).
+
+## Fase 6 parte A.2 — UI de admin completa (frontend sobre APIs existentes)
+- Rutas: `/inventario` (lista con acciones admin) → `/inventario/nuevo`,
+  `/inventario/[id]` (editar atributos + kardex + merma/ajuste + activar/desactivar),
+  `/inventario/entradas` (entrada multilínea), `/inventario/proveedores` (CRUD);
+  `/historial/[id]` (detalle de venta con snapshots + emitir DIAN); `/facturacion`
+  (resoluciones DIAN). Historial de cajas cerradas en `/caja`.
+- **Invariante de stock**: el stock NUNCA se edita a mano. `ProductoForm` no envía
+  `stock_milesimas` (ni POST ni PATCH); en edición es solo-lectura. La carga inicial
+  del alta y la merma/ajuste se registran como MOVIMIENTOS tipados.
+- Conversiones puras en `lib/forms.ts` (pesos↔centavos, unidades↔milésimas, enteros).
+- Gestión = solo admin: `AdminGuard` (`app/(app)/AdminGuard.tsx`) gatea las pantallas
+  de escritura en el cliente (defensa en profundidad; el backend `require_role` es la
+  autoridad). Nav muestra Facturación/Analítica solo a admin.
 
 ## Fase 4 — Facturación electrónica DIAN (mock → PT)
 - **Mock es el camino de demo** (sin llaves): `MockFiscalProvider` genera un CUFE
@@ -225,16 +241,16 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
   silencio. Hacerlos campos requeridos (sin default) para que falle ruidosamente.
 - ~~Login solo en memoria~~ y ~~UI de Inventario diferida~~: **RESUELTOS en Fase 2**
   (sesión real httpOnly BFF + pantallas de inventario).
-- Inventario en UI es de solo-lectura por ahora: los formularios de alta/edición de
-  productos y proveedores y la entrada de mercancía existen en la **API** (Fase 1)
-  pero aún no tienen pantalla de escritura (admin). Abordar cuando se priorice.
-- Caja: el arqueo concilia efectivo; los totales por otros métodos se exponen
-  (`/cash/sessions/{id}` → `totales_por_metodo`) pero la UI de caja aún no los pinta.
+- ~~UI de inventario solo-lectura~~, ~~UI de resoluciones DIAN~~, ~~caja sin
+  totales por método~~: **RESUELTOS en Fase 6 A.2** (CRUD de productos/proveedores,
+  entrada/merma/ajuste, kardex, detalle de venta, resoluciones DIAN, historial de
+  cajas). El stock sigue sin editarse a mano (solo por movimientos).
 - `InvoiceResolutionRead` expone `last_numero` (cuántos documentos fiscales se han
   emitido) a cualquier admin. Aceptable en portafolio; en producción separar un
-  `InvoiceResolutionSummary` sin ese campo para listados (hardening Fase 6).
-- Pantalla de configuración de resoluciones DIAN (admin): la API existe
-  (`/fiscal/resolutions`) pero aún no tiene UI; se usa la resolución de demo sembrada.
+  `InvoiceResolutionSummary` sin ese campo para listados (hardening Fase 6 B).
+- Edición de resolución: la API solo permite (des)activar (`InvoiceResolutionUpdate`
+  = `activa`); para cambiar rangos se crea una nueva (las resoluciones son inmutables).
+  La UI refleja esto (crear+activar / activar). OK.
 - Analítica (hardening menor Fase 6): `ByCashierRow` expone `user_id` (admin-only,
   ok en portafolio; en prod bastaría el nombre). `analytics_service.summary` llama a
   `costing.margin_bps(subtotal, cogs)` con agregados (aritméticamente correcto pero

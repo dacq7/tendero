@@ -24,6 +24,7 @@ const METODO_LABEL: Record<string, string> = {
 export default function CajaPage() {
   const [cash, setCash] = useState<CashSession | null>(null);
   const [detail, setDetail] = useState<CashSessionDetail | null>(null);
+  const [historial, setHistorial] = useState<CashSession[]>([]);
   const [nTx, setNTx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [montoInicial, setMontoInicial] = useState("");
@@ -48,6 +49,9 @@ export default function CajaPage() {
       setCash(null); // 409: no hay caja abierta
       setDetail(null);
     }
+    // Historial de cajas cerradas (consultable). El backend filtra por dueño/admin.
+    const todas = (await apiGet<CashSession[]>("cash/sessions").catch(() => [])) ?? [];
+    setHistorial(todas.filter((c) => c.status === "cerrada"));
   }
 
   useEffect(() => {
@@ -235,6 +239,48 @@ export default function CajaPage() {
             </div>
           </dl>
         </div>
+      )}
+
+      {historial.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-grafito">
+            Cajas anteriores
+          </h2>
+          <div className="mt-2 overflow-hidden rounded-2xl border border-niebla bg-white">
+            <table className="w-full text-sm">
+              <thead className="border-b border-niebla bg-niebla/30 text-left text-grafito">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Cierre</th>
+                  <th className="px-4 py-2 text-right font-medium">Esperado</th>
+                  <th className="px-4 py-2 text-right font-medium">Contado</th>
+                  <th className="px-4 py-2 text-right font-medium">Diferencia</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-niebla">
+                {historial.map((c) => (
+                  <tr key={c.id}>
+                    <td className="px-4 py-2 text-grafito">
+                      {c.cerrada_at ? new Date(c.cerrada_at).toLocaleString("es-CO") : "—"}
+                    </td>
+                    <td className="tabular px-4 py-2 text-right text-tinta">
+                      {formatCOP(c.efectivo_esperado_centavos ?? 0)}
+                    </td>
+                    <td className="tabular px-4 py-2 text-right text-tinta">
+                      {formatCOP(c.efectivo_contado_centavos ?? 0)}
+                    </td>
+                    <td
+                      className={`tabular px-4 py-2 text-right ${
+                        (c.diferencia_centavos ?? 0) < 0 ? "text-achiote" : "text-tinta"
+                      }`}
+                    >
+                      {formatCOP(c.diferencia_centavos ?? 0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   );

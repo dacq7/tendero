@@ -15,6 +15,7 @@ export interface Product {
   sku: string;
   codigo_barras: string | null;
   categoria: string | null;
+  supplier_id: number | null;
   precio_venta_centavos: number;
   precio_costo_centavos: number;
   iva: IvaRate;
@@ -25,6 +26,46 @@ export interface Product {
   margen_bps: number | null;
   stock_bajo: boolean;
   activo: boolean;
+}
+
+export interface Supplier {
+  id: number;
+  nombre: string;
+  nit: string | null;
+  contacto_nombre: string | null;
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  activo: boolean;
+}
+
+export type MovementType = "entrada" | "salida" | "ajuste" | "merma" | "reverso_venta";
+
+export interface MovementRead {
+  id: number;
+  product_id: number;
+  tipo: MovementType;
+  cantidad_milesimas: number;
+  costo_unitario_centavos: number | null;
+  stock_resultante_milesimas: number;
+  motivo: string | null;
+  user_id: number | null;
+  created_at: string;
+}
+
+export interface InvoiceResolution {
+  id: number;
+  numero_resolucion: string;
+  prefijo: string;
+  numero_desde: number;
+  numero_hasta: number;
+  last_numero: number;
+  vigencia_desde: string;
+  vigencia_hasta: string;
+  rut_nit: string;
+  responsabilidad: string;
+  activa: boolean;
+  created_at: string;
 }
 
 export type DianStatus = "none" | "pending" | "accepted" | "rejected";

@@ -12,6 +12,7 @@ const NAV = [
   { href: "/caja", label: "Caja" },
   { href: "/inventario", label: "Inventario" },
   { href: "/historial", label: "Historial" },
+  { href: "/facturacion", label: "Facturación", adminOnly: true },
   { href: "/analitica", label: "Analítica", adminOnly: true },
 ];
 
