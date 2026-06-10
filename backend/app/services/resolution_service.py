@@ -31,9 +31,7 @@ def _deactivate_current(session: Session) -> None:
         session.flush()  # libera el índice parcial único antes de activar otra
 
 
-def create_resolution(
-    session: Session, data: InvoiceResolutionCreate
-) -> InvoiceResolution:
+def create_resolution(session: Session, data: InvoiceResolutionCreate) -> InvoiceResolution:
     if data.numero_hasta < data.numero_desde:
         raise InvalidResolution("numero_hasta debe ser >= numero_desde")
     if data.vigencia_hasta < data.vigencia_desde:

@@ -5,6 +5,7 @@ Centraliza el mapeo para que todos los routers sean consistentes.
 
 from fastapi import HTTPException, status
 
+from app.services.analytics_errors import AnalyticsError, InvalidDateRange
 from app.services.fiscal_errors import (
     EmissionNotFound,
     FiscalError,
@@ -81,11 +82,13 @@ _STATUS: dict[type[Exception], int] = {
     ResolutionExpired: status.HTTP_409_CONFLICT,
     InvalidResolution: status.HTTP_422_UNPROCESSABLE_CONTENT,
     FiscalProviderUnavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
+    # Analítica
+    InvalidDateRange: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
 
 def http_error(
-    exc: InventoryError | SaleError | PaymentError | FiscalError,
+    exc: InventoryError | SaleError | PaymentError | FiscalError | AnalyticsError,
 ) -> HTTPException:
     for typ, code in _STATUS.items():
         if isinstance(exc, typ):

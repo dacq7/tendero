@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.routers import (
+    analytics,
     auth,
     cash,
     fiscal,
@@ -40,3 +41,4 @@ app.include_router(invoices.router)
 app.include_router(payments.router)
 app.include_router(webhooks.router)
 app.include_router(fiscal.router)
+app.include_router(analytics.router)

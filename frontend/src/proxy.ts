@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { REFRESH_COOKIE } from "@/lib/auth-config";
 
-const PROTECTED = ["/vender", "/caja", "/inventario", "/historial"];
+const PROTECTED = ["/vender", "/caja", "/inventario", "/historial", "/analitica"];
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -33,5 +33,12 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/vender/:path*", "/caja/:path*", "/inventario/:path*", "/historial/:path*", "/login"],
+  matcher: [
+    "/vender/:path*",
+    "/caja/:path*",
+    "/inventario/:path*",
+    "/historial/:path*",
+    "/analitica/:path*",
+    "/login",
+  ],
 };

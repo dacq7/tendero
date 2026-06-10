@@ -1,6 +1,9 @@
 """Tests de ventas: atomicidad, snapshot, IVA/totales, caja obligatoria, permisos."""
 
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
+
+from app.models.sale import SaleItem
 
 
 def crear_producto_con_stock(
@@ -152,6 +155,29 @@ def test_cajero_ve_solo_sus_ventas(
     vender(client, cajero_headers, (pid, 1000))
     assert len(client.get("/sales", headers=cajero_headers).json()) == 1  # solo la suya
     assert len(client.get("/sales", headers=admin_headers).json()) == 2  # todas
+
+
+def test_costo_snapshot_congelado_para_margen_historico(
+    client: TestClient, admin_headers: dict, session: Session
+) -> None:
+    pid = crear_producto_con_stock(client, admin_headers, sku="CS", stock_milesimas=10000)
+    abrir_caja(client, admin_headers)
+    sale = vender(client, admin_headers, (pid, 1000)).json()  # costo del producto = 50000
+    # Entrada posterior con costo más alto: el CMP del producto sube.
+    client.post(
+        "/inventory/entries",
+        json={
+            "lineas": [
+                {"product_id": pid, "cantidad_milesimas": 10000, "costo_unitario_centavos": 150000}
+            ]
+        },
+        headers=admin_headers,
+    )
+    # El producto ya tiene otro costo, pero la línea de la venta conserva el viejo.
+    p = client.get(f"/products/{pid}", headers=admin_headers).json()
+    assert p["precio_costo_centavos"] != 50000
+    item = session.exec(select(SaleItem).where(SaleItem.sale_id == sale["id"])).first()
+    assert item.costo_unitario_snapshot_centavos == 50000
 
 
 def test_sin_token_no_vende(client: TestClient) -> None:

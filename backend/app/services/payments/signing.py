@@ -8,9 +8,7 @@
 import hashlib
 
 
-def integrity_signature(
-    referencia: str, monto_centavos: int, moneda: str, secret: str
-) -> str:
+def integrity_signature(referencia: str, monto_centavos: int, moneda: str, secret: str) -> str:
     raw = f"{referencia}{monto_centavos}{moneda}{secret}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

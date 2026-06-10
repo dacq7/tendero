@@ -5,11 +5,11 @@ Guía para agentes (Claude Code) que trabajen en este repo. Complementa
 suposición tuya, **gana esto** — son decisiones ya tomadas y verificadas en Fase 0.
 
 ## Estado
-Fases 0, 1, 2, 3 y 4 COMPLETAS. Fase 0: cimientos + tests base y docs (0.7). Fase
-1: Inventario (backend). Fase 2: Ventas + Caja + Factura interna (backend y
-frontend, incl. sesión real y UI de Inventario). Fase 3: Pagos Wompi sandbox
-(mock como camino de demo). Fase 4: Facturación DIAN (mock → PT, modo mock de
-demo). Siguiente: Fase 5 (Analítica). Las fases siguen la sección 9 del brief.
+Fases 0-5 COMPLETAS (todas las de negocio). Fase 0: cimientos + tests base/docs
+(0.7). Fase 1: Inventario. Fase 2: Ventas + Caja + Factura interna (con frontend,
+sesión real). Fase 3: Pagos Wompi sandbox (mock de demo). Fase 4: Facturación DIAN
+(mock → PT). Fase 5: Analítica (seed de demo + agregaciones + dashboard). Queda la
+Fase 6 (pulido, e2e Playwright, hardening de seguridad, deploy) — ver Pendientes.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
@@ -102,6 +102,25 @@ demo). Siguiente: Fase 5 (Analítica). Las fases siguen la sección 9 del brief.
   con **aviso de que la emisión real requiere habilitación** (no promete validez
   fiscal). Lógica pura en `lib/fiscal.ts`.
 
+## Fase 5 — Analítica
+- **Snapshot de costo en `SaleItem`** (`costo_unitario_snapshot_centavos`, congelado
+  en `create_sale`): márgenes históricos correctos (el CMP del producto cambia con
+  cada entrada). Migración `79b284eebf44` (columna + backfill + índices de ventas:
+  `ix_sales_paid_at` y parcial `ix_sales_pagada_paid_at WHERE status='pagada'`).
+- **Seed de demo** `python -m app.seed_demo` (separado de `app.seed`): determinista
+  (PRNG sembrado + fecha de corte FIJA), idempotente (borra-y-recrea por marcadores
+  `demo.`/`DEMO-`), ~1400 ventas en 9 meses con horas pico y estacionalidad,
+  consistente (reutiliza `sale_pricing`). **Guarda anti-producción** (`APP_ENV`).
+- **Agregaciones en backend** (`/analytics/*`, SOLO admin): summary con comparativa
+  periodo anterior, timeseries (gap-filled), top productos/categorías, por método/
+  cajero, horas pico, inventario (stock valorizado, rotación = COGS/stock valorizado).
+  Todo entero (centavos/bps); eje temporal `paid_at` de ventas `pagada`. Cast a
+  BigInteger en COGS/stock (anti-overflow int32). CSV server-side (`export.csv`,
+  dataset en `Literal`). `analytics_repository` (read-only) → `analytics_service`.
+- **Dashboard** `/analitica` (recharts pineado 3.8.1; nav admin-only): selector de
+  rango, KPIs con delta, serie temporal, top productos, por método, inventario,
+  export CSV. Lógica de rangos pura en `lib/rango.ts`.
+
 ## Puertos (fijados para esta máquina; NO cambiar sin actualizar este archivo)
 - Postgres (Docker): **5436**
 - Backend (FastAPI):  **8020**
@@ -114,6 +133,8 @@ Estos puertos se eligieron por estar libres entre varios proyectos coexistentes.
 3. Frontend: `cd frontend && npm run dev -- --port 3001`
 4. Seed del primer admin: `cd backend && python -m app.seed`
    (por defecto: admin@tendero.co / Admin1234! — SOLO desarrollo local)
+5. (Opcional) Datos de demo para la analítica: `python -m app.seed_demo`
+   (~1400 ventas en 9 meses; idempotente; NO correr en producción)
 
 ## Invariantes de arquitectura (inmutables)
 - **Capas backend obligatorias**: router → service → repository → model/schema.
@@ -197,6 +218,10 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
   `InvoiceResolutionSummary` sin ese campo para listados (hardening Fase 6).
 - Pantalla de configuración de resoluciones DIAN (admin): la API existe
   (`/fiscal/resolutions`) pero aún no tiene UI; se usa la resolución de demo sembrada.
+- Analítica (hardening menor Fase 6): `ByCashierRow` expone `user_id` (admin-only,
+  ok en portafolio; en prod bastaría el nombre). `analytics_service.summary` llama a
+  `costing.margin_bps(subtotal, cogs)` con agregados (aritméticamente correcto pero
+  semánticamente la firma es unitaria — vigilar si margin_bps cambia).
 
 ## Contexto de portafolio (orienta Fases 3-6)
 Este es un proyecto de PORTAFOLIO. No habrá credenciales reales de Wompi, del PT de

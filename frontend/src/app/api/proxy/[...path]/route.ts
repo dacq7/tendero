@@ -27,6 +27,7 @@ const ALLOWED_PREFIXES = [
   "invoices",
   "payments",
   "fiscal",
+  "analytics",
   "auth/me",
 ];
 
@@ -87,6 +88,12 @@ async function forward(request: Request, ctx: Ctx): Promise<NextResponse> {
           status: res.status,
           headers: {
             "Content-Type": res.headers.get("Content-Type") ?? "application/json",
+            // Descargas (p. ej. CSV de analítica): construimos el header LOCALMENTE
+            // a partir del nombre de archivo conocido, en vez de pasar el del
+            // backend literal (evita inyección de cabeceras).
+            ...(res.headers.get("Content-Disposition") && path.at(-1)?.endsWith(".csv")
+              ? { "Content-Disposition": `attachment; filename="${path.at(-1)}"` }
+              : {}),
           },
         });
 

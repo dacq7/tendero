@@ -12,6 +12,7 @@ const NAV = [
   { href: "/caja", label: "Caja" },
   { href: "/inventario", label: "Inventario" },
   { href: "/historial", label: "Historial" },
+  { href: "/analitica", label: "Analítica", adminOnly: true },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               Tendero
             </Link>
             <nav className="flex gap-1">
-              {NAV.map((item) => {
+              {NAV.filter((item) => !item.adminOnly || user?.role === "admin").map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link

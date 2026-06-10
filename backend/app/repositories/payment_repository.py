@@ -21,9 +21,5 @@ def get_by_sale(session: Session, sale_id: int) -> Payment | None:
 
 def get_by_wompi_tx_for_update(session: Session, transaction_id: str) -> Payment | None:
     """Carga el pago por id de transacción con bloqueo de fila (para el webhook)."""
-    stmt = (
-        select(Payment)
-        .where(Payment.wompi_transaction_id == transaction_id)
-        .with_for_update()
-    )
+    stmt = select(Payment).where(Payment.wompi_transaction_id == transaction_id).with_for_update()
     return session.exec(stmt).first()

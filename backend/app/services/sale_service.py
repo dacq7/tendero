@@ -111,6 +111,7 @@ def create_sale(session: Session, data: SaleCreate, *, user_id: int) -> Sale:
                 sku_snapshot=product.sku,
                 cantidad_milesimas=linea.cantidad_milesimas,
                 precio_unitario_centavos=product.precio_venta_centavos,
+                costo_unitario_snapshot_centavos=product.precio_costo_centavos,
                 iva_rate_snapshot=product.iva,
                 iva_bps_snapshot=lt.iva_bps,
                 base_centavos=lt.base_centavos,
@@ -167,9 +168,7 @@ def list_sales(
     )
 
 
-def sale_detail(
-    session: Session, sale_id: int
-) -> tuple[Sale, list[SaleItem], Invoice | None]:
+def sale_detail(session: Session, sale_id: int) -> tuple[Sale, list[SaleItem], Invoice | None]:
     """Detalle de la venta. `invoice` es None mientras el pago Wompi no se
     confirma (venta `pendiente_pago`) o si fue `rechazada`."""
     sale = get_sale(session, sale_id)

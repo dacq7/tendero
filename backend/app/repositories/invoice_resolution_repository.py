@@ -10,9 +10,7 @@ def get(session: Session, resolution_id: int) -> InvoiceResolution | None:
 
 
 def get_active(session: Session) -> InvoiceResolution | None:
-    return session.exec(
-        select(InvoiceResolution).where(InvoiceResolution.activa)
-    ).first()
+    return session.exec(select(InvoiceResolution).where(InvoiceResolution.activa)).first()
 
 
 def lock_active(session: Session) -> InvoiceResolution | None:
@@ -22,9 +20,7 @@ def lock_active(session: Session) -> InvoiceResolution | None:
 
 
 def list_all(session: Session) -> list[InvoiceResolution]:
-    return list(
-        session.exec(select(InvoiceResolution).order_by(InvoiceResolution.id.desc())).all()
-    )
+    return list(session.exec(select(InvoiceResolution).order_by(InvoiceResolution.id.desc())).all())
 
 
 def add(session: Session, resolution: InvoiceResolution) -> InvoiceResolution:

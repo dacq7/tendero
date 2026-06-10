@@ -23,9 +23,5 @@ def get_by_invoice(session: Session, invoice_id: int) -> FiscalEmission | None:
 
 def get_by_invoice_for_update(session: Session, invoice_id: int) -> FiscalEmission | None:
     """Carga la emisión de la factura con bloqueo de fila (idempotencia del emit)."""
-    stmt = (
-        select(FiscalEmission)
-        .where(FiscalEmission.invoice_id == invoice_id)
-        .with_for_update()
-    )
+    stmt = select(FiscalEmission).where(FiscalEmission.invoice_id == invoice_id).with_for_update()
     return session.exec(stmt).first()

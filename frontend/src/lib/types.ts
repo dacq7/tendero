@@ -104,6 +104,62 @@ export interface CashSession {
   diferencia_centavos: number | null;
 }
 
+// ── Analítica ──
+export type Granularidad = "dia" | "semana" | "mes" | "ano";
+
+export interface SummaryComparison {
+  ventas_centavos: number;
+  n_transacciones: number;
+  ticket_promedio_centavos: number;
+  margen_centavos: number;
+  delta_ventas_bps: number | null;
+  delta_transacciones_bps: number | null;
+  delta_ticket_bps: number | null;
+  delta_margen_bps: number | null;
+}
+
+export interface AnalyticsSummary {
+  desde: string;
+  hasta: string;
+  ventas_centavos: number;
+  subtotal_centavos: number;
+  iva_centavos: number;
+  cogs_centavos: number;
+  n_transacciones: number;
+  ticket_promedio_centavos: number;
+  margen_centavos: number;
+  margen_bps: number | null;
+  comparativa: SummaryComparison | null;
+}
+
+export interface TimeSeriesPoint {
+  periodo: string;
+  ventas_centavos: number;
+  n_transacciones: number;
+  margen_centavos: number;
+}
+
+export interface TopProduct {
+  product_id: number;
+  nombre: string;
+  ventas_centavos: number;
+  cantidad_milesimas: number;
+  margen_centavos: number;
+}
+
+export interface ByMethodRow {
+  metodo: string;
+  ventas_centavos: number;
+  n_transacciones: number;
+}
+
+export interface InventoryStats {
+  stock_valorizado_centavos: number;
+  cogs_periodo_centavos: number;
+  rotacion_bps: number | null;
+  n_stock_bajo: number;
+}
+
 export const PAYMENT_METHODS = [
   "efectivo",
   "transferencia",

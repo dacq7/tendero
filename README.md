@@ -10,7 +10,7 @@ Construcción por fases (ver `brief-tendero-pro.md`).
 - [x] **Fase 2 — Ventas + Caja + Factura interna** (venta atómica, numeración propia, caja con arqueo, sesión real httpOnly + UI "Vender")
 - [x] **Fase 3 — Pagos Wompi (sandbox)** (interfaz mock/real, webhook idempotente con firma, flujo de pago asíncrono; mock como demo)
 - [x] **Fase 4 — Facturación DIAN (mock → PT)** (interfaz mock/real, resolución de numeración, CUFE simulado, emisión idempotente; sin validez fiscal real)
-- [ ] Fase 5 — Analítica
+- [x] **Fase 5 — Analítica** (seed de demo determinista, agregaciones admin-only en backend, dashboard con recharts y export CSV)
 - [ ] Fase 6 — Pulido + deploy
 
 ## Puertos locales (fijados para esta máquina)
@@ -71,6 +71,12 @@ cd backend && source .venv/bin/activate
 python -m app.seed          # admin@tendero.co / Admin1234!  (SOLO desarrollo)
 ```
 Acepta argumentos: `python -m app.seed <email> <password> <nombre>`. Es idempotente.
+
+**Datos de demo para la analítica** (opcional, recomendado para ver el dashboard):
+```bash
+cd backend && source .venv/bin/activate
+python -m app.seed_demo   # ~1400 ventas en 9 meses, idempotente. NO en producción.
+```
 
 ### 5. Frontend (Next.js)
 ```bash

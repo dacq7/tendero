@@ -71,6 +71,7 @@ class SaleItem(SQLModel, table=True):
         CheckConstraint("base_centavos >= 0", name="ck_sale_items_base_no_neg"),
         CheckConstraint("iva_centavos >= 0", name="ck_sale_items_iva_no_neg"),
         CheckConstraint("total_linea_centavos >= 0", name="ck_sale_items_total_no_neg"),
+        CheckConstraint("costo_unitario_snapshot_centavos >= 0", name="ck_sale_items_costo_no_neg"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -82,6 +83,9 @@ class SaleItem(SQLModel, table=True):
     sku_snapshot: str = Field(max_length=64)
     cantidad_milesimas: int
     precio_unitario_centavos: int  # base sin IVA
+    # Costo (CMP) congelado al vender: márgenes históricos correctos (el costo del
+    # producto cambia con cada entrada). Ver analytics.
+    costo_unitario_snapshot_centavos: int = Field(default=0)
     iva_rate_snapshot: IvaRate  # preserva exento vs tarifa_0 (para Fase 4)
     iva_bps_snapshot: int  # puntos básicos congelados
 
