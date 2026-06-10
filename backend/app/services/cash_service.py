@@ -23,10 +23,15 @@ from app.services.sales_errors import (
 )
 
 
-def get(session: Session, cash_session_id: int) -> CashRegisterSession:
+def get(
+    session: Session, cash_session_id: int, *, actor: User | None = None
+) -> CashRegisterSession:
     cash = cash_repository.get(session, cash_session_id)
     if cash is None:
         raise CashSessionNotFound(f"Caja {cash_session_id} no encontrada")
+    # El cajero solo ve su propia caja; el admin, cualquiera.
+    if actor is not None and actor.role != UserRole.admin and cash.user_id != actor.id:
+        raise ForbiddenCashSession("No puedes ver una caja que no es tuya")
     return cash
 
 

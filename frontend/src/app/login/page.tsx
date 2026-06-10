@@ -1,28 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { login, ApiError } from "@/lib/api";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      // TODO (Fase 2): persistir sesión (cookie httpOnly / refresh) y redirigir
-      // a la pantalla "Vender". Por ahora confirmamos que el flujo de auth real
-      // responde y dejamos los tokens en memoria.
+      // Sesión real vía BFF: el login deja cookies httpOnly. Redirigimos al
+      // mostrador ("Vender"), la pantalla protagonista.
       await login(email, password);
-      setDone(true);
+      router.push("/vender");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Algo salió mal. Intenta de nuevo.");
-    } finally {
       setLoading(false);
     }
   }
@@ -66,16 +65,7 @@ export default function LoginPage() {
           <h2 className="font-display text-2xl font-bold text-tinta">Entrar</h2>
           <p className="mt-1 text-sm text-grafito">Ingresa con tu cuenta para abrir caja.</p>
 
-          {done ? (
-            <div className="mt-8 rounded-xl border border-azulon/20 bg-azulon/5 p-5">
-              <p className="font-semibold text-azulon">Sesión iniciada</p>
-              <p className="mt-1 text-sm text-grafito">
-                El flujo de autenticación respondió correctamente. La pantalla de venta llega en la
-                siguiente fase.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-tinta">Correo</label>
                 <input
@@ -106,7 +96,6 @@ export default function LoginPage() {
                 {loading ? "Entrando…" : "Entrar"}
               </button>
             </form>
-          )}
         </div>
       </section>
     </main>

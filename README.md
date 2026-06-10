@@ -5,9 +5,9 @@ barrio y pequeños comercios en Colombia (es-CO). Vertical comercial de Veridis 
 
 ## Estado
 Construcción por fases (ver `brief-tendero-pro.md`).
-- [x] **Fase 0 — Cimientos** (completa: monorepo, Postgres, FastAPI en capas, Alembic, auth con roles, login, tests base y docs)
-- [ ] Fase 1 — Inventario
-- [ ] Fase 2 — Ventas + Caja + Factura interna
+- [x] **Fase 0 — Cimientos** (monorepo, Postgres, FastAPI en capas, Alembic, auth con roles, login, tests base y docs)
+- [x] **Fase 1 — Inventario** (productos, proveedores, kardex, costeo CMP, alertas)
+- [x] **Fase 2 — Ventas + Caja + Factura interna** (venta atómica, numeración propia, caja con arqueo, sesión real httpOnly + UI "Vender")
 - [ ] Fase 3 — Pagos Wompi (sandbox)
 - [ ] Fase 4 — Facturación DIAN (mock → PT)
 - [ ] Fase 5 — Analítica
@@ -78,7 +78,13 @@ cd frontend
 npm install
 npm run dev -- --port 3001
 ```
-App en http://localhost:3001 · la pantalla de login está en `/login`.
+App en http://localhost:3001 · login en `/login` · mostrador en `/vender`.
+
+La sesión es real: el login (`/api/session`) guarda los JWT en **cookies httpOnly**
+y el navegador habla con el backend solo a través del proxy server-side
+(`/api/proxy/...`). Por eso `frontend/.env.local` necesita `BACKEND_URL`
+(server-side; los JWT nunca llegan al navegador). Entra con el admin sembrado en el
+paso 4. Rutas protegidas: `/vender`, `/caja`, `/inventario`, `/historial`.
 
 ## Tests
 

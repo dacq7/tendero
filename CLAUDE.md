@@ -5,12 +5,11 @@ Guía para agentes (Claude Code) que trabajen en este repo. Complementa
 suposición tuya, **gana esto** — son decisiones ya tomadas y verificadas en Fase 0.
 
 ## Estado
-Fase 0 (Cimientos) COMPLETA: monorepo, Docker Postgres, FastAPI en capas, Alembic,
-auth con roles, frontend base con la pantalla de login, y (sub-fase 0.7) tests base
-+ docs. Backend con pytest contra base aislada `tendero_test` (migraciones reales,
-no `create_all`); frontend con Vitest sobre el login; `README.md` con arranque
-end-to-end. Las siguientes fases siguen el orden de la sección 9 del brief, una
-por `/feature`.
+Fases 0, 1 y 2 COMPLETAS. Fase 0: cimientos (monorepo, Postgres, FastAPI en capas,
+Alembic, auth con roles, login) + tests base y docs (0.7). Fase 1: Inventario
+(backend). Fase 2: Ventas + Caja + Factura interna (backend **y** frontend, incl.
+la sesión real y la UI de Inventario que se habían diferido). Siguiente: Fase 3
+(Pagos Wompi sandbox). Las fases siguen la sección 9 del brief, una por `/feature`.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
@@ -19,7 +18,7 @@ por `/feature`.
   con sufijo `_test` (obligatorio). Patrón: `backend/tests/conftest.py`.
 - **Frontend**: `cd frontend && npm test` (Vitest + Testing Library, jsdom).
 
-## Fase 1 — Inventario (backend COMPLETO; frontend pendiente)
+## Fase 1 — Inventario
 - Modelos: `Supplier`, `Product`, `InventoryMovement` (kardex). Enums `IvaRate`
   (exento/0/5/19), `ProductUnit`, `MovementType`.
 - **Decisiones bloqueadas**: costeo = **promedio ponderado (CMP)** en `services/costing.py`;
@@ -29,7 +28,36 @@ por `/feature`.
 - Stock con `SELECT FOR UPDATE` (`product_service.get_locked`) para evitar carreras.
   Entrada de mercancía multilínea **atómica** (un solo commit). Permisos: admin escribe,
   cajero consulta. Endpoints bajo `/products`, `/suppliers`, `/inventory`.
-- Migración `c025802323ed`. 47 tests (alta cobertura en dinero/stock/permisos).
+- Migración `c025802323ed`.
+
+## Fase 2 — Ventas + Caja + Factura interna
+- Modelos: `Sale` + `SaleItem` (snapshot de precio/IVA por línea, sin referencia
+  viva), `Invoice` (numeración propia; `dian_status=none`, cufe/wompi nulos hasta
+  Fases 3-4), `InvoiceSequence`, `CashRegisterSession`. Migración `4c84926354df`.
+- **Decisiones bloqueadas**: precio = **base sin IVA** (total = subtotal + IVA),
+  pricing puro en `services/sale_pricing.py` + `services/money.py` (half-up entero,
+  compartido con costing); numeración **serie global única `POS`** con `SELECT FOR
+  UPDATE` en la txn de la venta (sin huecos ni duplicados; mapea a resolución DIAN);
+  **caja única a la vez como VALIDACIÓN de negocio** (advisory lock + check, NO
+  constraint estructural — `CashRegisterSession.user_id` deja la puerta a multi-caja);
+  **venta requiere caja abierta**. Anulación: enum previsto, sin endpoint (fase futura).
+- **Venta atómica** (`sale_service.create_sale`, un commit): descuenta stock vía
+  `apply_movement` (FOR UPDATE por producto), congela snapshots, totales/IVA, asigna
+  número, marca pagada. Rollback total ante fallo (no consume stock ni número).
+- Permisos: cajero opera ventas/su caja y ve **solo lo suyo** (ventas, facturas y
+  detalle de caja filtrados por dueño); admin todo. Endpoints `/sales`, `/cash`,
+  `/invoices`.
+- **Frontend — sesión real (BFF)**: los JWT viven SOLO en cookies httpOnly; el
+  navegador habla con Route Handlers mismo-origen (`/api/session`, `/api/proxy/[...]`)
+  que adjuntan el token server-side y refrescan en 401. `src/proxy.ts` protege rutas
+  (convención `proxy` de Next 16, no `middleware`). El proxy tiene **allowlist** de
+  prefijos (anti-SSRF). `BACKEND_URL` es server-only (no `NEXT_PUBLIC_*`).
+- Pantallas (dirección "Rótulo"): **Vender** (protagonista: buscador, carrito,
+  totales/IVA en vivo, cobro y **ticket** = elemento audaz), **Caja** (abrir/cerrar
+  con arqueo), **Inventario** (lista + alertas), **Historial** (facturas).
+- Tests: backend 76 (venta atómica/rollback, numeración SIN duplicados bajo
+  **concurrencia real**, IVA/totales, arqueo, permisos por dueño); frontend 16
+  Vitest (carrito/dinero puro, login, flujo de venta carrito→cobro→ticket).
 
 ## Puertos (fijados para esta máquina; NO cambiar sin actualizar este archivo)
 - Postgres (Docker): **5436**
@@ -114,13 +142,13 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
 - Hardening Fase 6: `app/core/config.py` tiene defaults hardcodeados para
   `database_url` y `jwt_secret`. Arrancar sin `.env` usa credenciales conocidas en
   silencio. Hacerlos campos requeridos (sin default) para que falle ruidosamente.
-- Login: tras auth OK solo deja tokens en memoria (TODO marcado en
-  `frontend/src/app/login/page.tsx`). Sesión real (cookie httpOnly + refresh) y
-  redirección a "Vender" son Fase 2.
-- **UI de Inventario diferida a Fase 2 (decidido con el usuario)**: el backend de
-  Fase 1 está completo, pero las pantallas (lista/kardex/formularios/proveedores/
-  entrada/alertas) se construirán en Fase 2 sobre la sesión real, para no fabricar
-  plomería de auth desechable. Endpoints listos: `/products`, `/suppliers`, `/inventory`.
+- ~~Login solo en memoria~~ y ~~UI de Inventario diferida~~: **RESUELTOS en Fase 2**
+  (sesión real httpOnly BFF + pantallas de inventario).
+- Inventario en UI es de solo-lectura por ahora: los formularios de alta/edición de
+  productos y proveedores y la entrada de mercancía existen en la **API** (Fase 1)
+  pero aún no tienen pantalla de escritura (admin). Abordar cuando se priorice.
+- Caja: el arqueo concilia efectivo; los totales por otros métodos se exponen
+  (`/cash/sessions/{id}` → `totales_por_metodo`) pero la UI de caja aún no los pinta.
 
 ## Contexto de portafolio (orienta Fases 3-6)
 Este es un proyecto de PORTAFOLIO. No habrá credenciales reales de Wompi, del PT de

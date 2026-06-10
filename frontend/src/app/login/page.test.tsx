@@ -12,6 +12,12 @@ vi.mock("@/lib/api", async () => {
   return { ...actual, login: vi.fn() };
 });
 
+// Mock del router de Next: capturamos la redirección por rol.
+const pushMock = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
+
 import { login } from "@/lib/api";
 
 const loginMock = vi.mocked(login);
@@ -25,6 +31,7 @@ async function fillCredentials(user: ReturnType<typeof userEvent.setup>) {
 describe("LoginPage", () => {
   beforeEach(() => {
     loginMock.mockReset();
+    pushMock.mockReset();
   });
 
   it("renderiza el formulario de entrada", () => {
@@ -60,18 +67,14 @@ describe("LoginPage", () => {
     expect(button).toBeDisabled();
   });
 
-  it("muestra la confirmación cuando el login responde correctamente", async () => {
-    loginMock.mockResolvedValueOnce({
-      access_token: "a",
-      refresh_token: "r",
-      token_type: "bearer",
-    });
+  it("redirige al mostrador cuando el login responde correctamente", async () => {
+    loginMock.mockResolvedValueOnce({ role: "cajero" });
     const user = userEvent.setup();
     render(<LoginPage />);
 
     await fillCredentials(user);
     await user.click(screen.getByRole("button", { name: "Entrar" }));
 
-    expect(await screen.findByText("Sesión iniciada")).toBeInTheDocument();
+    await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith("/vender"));
   });
 });

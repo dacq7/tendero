@@ -39,3 +39,7 @@ class SaleHasPendingItems(SaleError):
 
 class ForbiddenCashSession(SaleError):
     """El cajero intenta operar una caja que no es suya."""
+
+
+class ForbiddenSale(SaleError):
+    """El cajero intenta ver una venta/factura que no es suya."""

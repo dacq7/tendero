@@ -64,11 +64,11 @@ def list_cash_sessions(
 @router.get("/sessions/{cash_session_id}", response_model=CashSessionDetail)
 def get_cash_session(
     cash_session_id: int,
-    _: User = Depends(_staff),
+    current_user: User = Depends(_staff),
     session: Session = Depends(get_session),
 ) -> CashSessionDetail:
     try:
-        cash = cash_service.get(session, cash_session_id)
+        cash = cash_service.get(session, cash_session_id, actor=current_user)
     except SaleError as exc:
         raise http_error(exc) from exc
     totales = cash_service.session_summary(session, cash_session_id)

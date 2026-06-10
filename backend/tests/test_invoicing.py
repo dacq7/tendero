@@ -33,6 +33,30 @@ def test_una_factura_por_venta(client: TestClient, admin_headers: dict) -> None:
     assert len(de_la_venta) == 1
 
 
+def test_cajero_solo_ve_sus_facturas(
+    client: TestClient, admin_headers: dict, cajero_headers: dict
+) -> None:
+    pid = crear_producto_con_stock(client, admin_headers, sku="IF", stock_milesimas=10000)
+    # Admin vende y cierra su caja.
+    admin_caja = abrir_caja(client, admin_headers)
+    admin_sale = vender(client, admin_headers, (pid, 1000)).json()
+    client.post(
+        f"/cash/sessions/{admin_caja}/close",
+        json={"efectivo_contado_centavos": 0},
+        headers=admin_headers,
+    )
+    # Cajero vende en su caja.
+    abrir_caja(client, cajero_headers)
+    vender(client, cajero_headers, (pid, 1000))
+
+    assert len(client.get("/invoices", headers=cajero_headers).json()) == 1  # solo la suya
+    assert len(client.get("/invoices", headers=admin_headers).json()) == 2  # todas
+
+    # El cajero no puede ver la factura del admin por id.
+    admin_inv_id = admin_sale["invoice"]["id"]
+    assert client.get(f"/invoices/{admin_inv_id}", headers=cajero_headers).status_code == 403
+
+
 def test_numeracion_sin_duplicados_bajo_concurrencia(
     client: TestClient, _engine: Engine, admin_headers: dict
 ) -> None:

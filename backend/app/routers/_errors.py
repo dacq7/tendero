@@ -21,6 +21,7 @@ from app.services.sales_errors import (
     CashSessionNotFound,
     EmptySale,
     ForbiddenCashSession,
+    ForbiddenSale,
     InvoiceNotFound,
     NoCashSessionOpen,
     SaleError,
@@ -46,6 +47,7 @@ _STATUS: dict[type[Exception], int] = {
     CashSessionAlreadyClosed: status.HTTP_409_CONFLICT,
     SaleHasPendingItems: status.HTTP_409_CONFLICT,
     ForbiddenCashSession: status.HTTP_403_FORBIDDEN,
+    ForbiddenSale: status.HTTP_403_FORBIDDEN,
     EmptySale: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
