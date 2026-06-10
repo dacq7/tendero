@@ -122,10 +122,13 @@ def _truncate(_engine: Engine):
     with _engine.connect() as conn:
         conn.execute(
             text(
-                "TRUNCATE TABLE inventory_movements, products, suppliers, users "
+                "TRUNCATE TABLE sale_items, invoices, sales, cash_register_sessions, "
+                "invoice_sequences, inventory_movements, products, suppliers, users "
                 "RESTART IDENTITY CASCADE"
             )
         )
+        # invoice_sequences se truncó: re-sembrar la serie POS (como la migración).
+        conn.execute(text("INSERT INTO invoice_sequences (serie, last_numero) VALUES ('POS', 0)"))
         conn.commit()
 
 

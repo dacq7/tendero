@@ -1,14 +1,11 @@
 """Matemática de dinero del inventario: costeo y márgenes. Funciones PURAS.
 
 Todo en enteros: precios en centavos COP, cantidades en milésimas de unidad
-(1000 = 1 unidad). El redondeo al centavo es half-up determinista (no el
-round() bancario de Python), para que los tests sean exactos y reproducibles.
+(1000 = 1 unidad). El redondeo al centavo es half-up determinista (ver
+services/money.py), para que los tests sean exactos y reproducibles.
 """
 
-
-def _round_half_up(numerador: int, denominador: int) -> int:
-    """División entera con redondeo half-up (denominador > 0)."""
-    return (numerador + denominador // 2) // denominador
+from app.services.money import round_half_up
 
 
 def margin_centavos(precio_venta_centavos: int, precio_costo_centavos: int) -> int:
@@ -46,4 +43,4 @@ def weighted_average_cost(
         stock_actual_milesimas * costo_actual_centavos
         + cantidad_entrada_milesimas * costo_entrada_centavos
     )
-    return _round_half_up(numerador, total_milesimas)
+    return round_half_up(numerador, total_milesimas)
