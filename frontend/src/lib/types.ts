@@ -27,6 +27,8 @@ export interface Product {
   activo: boolean;
 }
 
+export type DianStatus = "none" | "pending" | "accepted" | "rejected";
+
 export interface InvoiceRead {
   id: number;
   sale_id: number;
@@ -35,8 +37,20 @@ export interface InvoiceRead {
   iva_total_centavos: number;
   total_centavos: number;
   metodo_pago: string;
-  dian_status: string;
+  dian_status: DianStatus;
+  cufe: string | null;
   created_at: string;
+}
+
+export interface FiscalEmissionRead {
+  id: number;
+  invoice_id: number;
+  numero_fiscal_completo: string;
+  provider: string;
+  status: DianStatus;
+  cufe: string | null;
+  motivo_rechazo: string | null;
+  intentos: number;
 }
 
 export interface SaleItemRead {

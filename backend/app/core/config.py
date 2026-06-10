@@ -31,5 +31,12 @@ class Settings(BaseSettings):
     wompi_integrity_secret: str = "integrity_test_secret"
     wompi_events_secret: str = "events_test_secret"
 
+    # Facturación electrónica DIAN vía Proveedor Tecnológico (Fase 4). 'mock' es el
+    # camino de demo; 'real' mapea al API del PT (credenciales SOLO en servidor).
+    fiscal_provider: str = "mock"  # mock | real
+    fiscal_pt_api_url: str = ""
+    fiscal_pt_api_key: str = ""
+    fiscal_cufe_secret: str = "cufe_demo_secret"
+
 
 settings = Settings()

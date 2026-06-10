@@ -5,11 +5,11 @@ Guía para agentes (Claude Code) que trabajen en este repo. Complementa
 suposición tuya, **gana esto** — son decisiones ya tomadas y verificadas en Fase 0.
 
 ## Estado
-Fases 0, 1, 2 y 3 COMPLETAS. Fase 0: cimientos + tests base y docs (0.7). Fase 1:
-Inventario (backend). Fase 2: Ventas + Caja + Factura interna (backend y frontend,
-incl. sesión real y UI de Inventario). Fase 3: Pagos Wompi sandbox (backend y
-frontend, modo mock como camino de demo). Siguiente: Fase 4 (Facturación DIAN
-mock → PT). Las fases siguen la sección 9 del brief, una por `/feature`.
+Fases 0, 1, 2, 3 y 4 COMPLETAS. Fase 0: cimientos + tests base y docs (0.7). Fase
+1: Inventario (backend). Fase 2: Ventas + Caja + Factura interna (backend y
+frontend, incl. sesión real y UI de Inventario). Fase 3: Pagos Wompi sandbox
+(mock como camino de demo). Fase 4: Facturación DIAN (mock → PT, modo mock de
+demo). Siguiente: Fase 5 (Analítica). Las fases siguen la sección 9 del brief.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
@@ -78,6 +78,29 @@ mock → PT). Las fases siguen la sección 9 del brief, una por `/feature`.
   Cierre de caja bloquea si hay ventas `pendiente_pago` en vuelo.
 - Frontend: Vender refleja el estado async (cobrar → **procesando** → ticket/rechazado),
   con polling en real y botones de simulación en mock. Lógica pura en `lib/cobro.ts`.
+
+## Fase 4 — Facturación electrónica DIAN (mock → PT)
+- **Mock es el camino de demo** (sin llaves): `MockFiscalProvider` genera un CUFE
+  SIMULADO determinista (SHA256 de campos fiscales + secreto de prueba, SIN validez
+  fiscal) y acepta/rechaza de forma explicable (rechaza si totales/IVA por tarifa no
+  cuadran). `RealFiscalProvider` mapea a un PT genérico REST (Alanube/Factus),
+  credenciales SOLO en server, no corre sin ellas. `FISCAL_PROVIDER=mock|real`.
+  Interfaz en `services/fiscal/`. Emisión SÍNCRONA (no webhook).
+- **Numeración fiscal separada del POS** (decisión confirmada): el número fiscal se
+  asigna AL EMITIR del rango de una `InvoiceResolution` activa (prefijo, rango,
+  vigencia, RUT, Resp. 52), con `last_numero` por resolución vía `FOR UPDATE` (sin
+  huecos). El POS interno de Fase 2 queda intacto. Una sola resolución activa (índice
+  parcial único). Migración `68585982b58f` siembra una resolución de demo (`SETP`).
+- **`FiscalEmission`** 1:1 con `Invoice` (UNIQUE(invoice_id) = idempotencia): guarda
+  número fiscal, resolución, CUFE, estado (`pending/accepted/rejected`), motivo de
+  rechazo, intentos. `Invoice.dian_status`/`cufe` = caché. Reemitir una aceptada
+  devuelve la misma emisión; rechazo/fallo del PT **reusa el mismo número** (no quema
+  otro): el número se commitea al reservarse antes de llamar al PT.
+- **Emisión manual por el admin** (no acoplada al cobro). Endpoints `/fiscal/...`:
+  emit y CRUD de resoluciones = solo admin; consultar emisión = admin+cajero.
+- Frontend: badge de estado DIAN + botón "Emitir a DIAN" (admin) + CUFE en historial,
+  con **aviso de que la emisión real requiere habilitación** (no promete validez
+  fiscal). Lógica pura en `lib/fiscal.ts`.
 
 ## Puertos (fijados para esta máquina; NO cambiar sin actualizar este archivo)
 - Postgres (Docker): **5436**
@@ -169,6 +192,11 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
   pero aún no tienen pantalla de escritura (admin). Abordar cuando se priorice.
 - Caja: el arqueo concilia efectivo; los totales por otros métodos se exponen
   (`/cash/sessions/{id}` → `totales_por_metodo`) pero la UI de caja aún no los pinta.
+- `InvoiceResolutionRead` expone `last_numero` (cuántos documentos fiscales se han
+  emitido) a cualquier admin. Aceptable en portafolio; en producción separar un
+  `InvoiceResolutionSummary` sin ese campo para listados (hardening Fase 6).
+- Pantalla de configuración de resoluciones DIAN (admin): la API existe
+  (`/fiscal/resolutions`) pero aún no tiene UI; se usa la resolución de demo sembrada.
 
 ## Contexto de portafolio (orienta Fases 3-6)
 Este es un proyecto de PORTAFOLIO. No habrá credenciales reales de Wompi, del PT de

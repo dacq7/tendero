@@ -9,7 +9,7 @@ Construcción por fases (ver `brief-tendero-pro.md`).
 - [x] **Fase 1 — Inventario** (productos, proveedores, kardex, costeo CMP, alertas)
 - [x] **Fase 2 — Ventas + Caja + Factura interna** (venta atómica, numeración propia, caja con arqueo, sesión real httpOnly + UI "Vender")
 - [x] **Fase 3 — Pagos Wompi (sandbox)** (interfaz mock/real, webhook idempotente con firma, flujo de pago asíncrono; mock como demo)
-- [ ] Fase 4 — Facturación DIAN (mock → PT)
+- [x] **Fase 4 — Facturación DIAN (mock → PT)** (interfaz mock/real, resolución de numeración, CUFE simulado, emisión idempotente; sin validez fiscal real)
 - [ ] Fase 5 — Analítica
 - [ ] Fase 6 — Pulido + deploy
 

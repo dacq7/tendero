@@ -5,6 +5,17 @@ Centraliza el mapeo para que todos los routers sean consistentes.
 
 from fastapi import HTTPException, status
 
+from app.services.fiscal_errors import (
+    EmissionNotFound,
+    FiscalError,
+    FiscalProviderUnavailable,
+    InvalidResolution,
+    InvoiceNotEmittable,
+    NoActiveResolution,
+    ResolutionExhausted,
+    ResolutionExpired,
+    ResolutionNotFound,
+)
 from app.services.inventory_errors import (
     DuplicateBarcode,
     DuplicateSku,
@@ -61,10 +72,21 @@ _STATUS: dict[type[Exception], int] = {
     InvalidSignature: status.HTTP_400_BAD_REQUEST,
     SaleNotPayable: status.HTTP_409_CONFLICT,
     ProviderUnavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
+    # Facturación DIAN
+    EmissionNotFound: status.HTTP_404_NOT_FOUND,
+    ResolutionNotFound: status.HTTP_404_NOT_FOUND,
+    InvoiceNotEmittable: status.HTTP_409_CONFLICT,
+    NoActiveResolution: status.HTTP_409_CONFLICT,
+    ResolutionExhausted: status.HTTP_409_CONFLICT,
+    ResolutionExpired: status.HTTP_409_CONFLICT,
+    InvalidResolution: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    FiscalProviderUnavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 
-def http_error(exc: InventoryError | SaleError | PaymentError) -> HTTPException:
+def http_error(
+    exc: InventoryError | SaleError | PaymentError | FiscalError,
+) -> HTTPException:
     for typ, code in _STATUS.items():
         if isinstance(exc, typ):
             return HTTPException(status_code=code, detail=str(exc))

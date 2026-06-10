@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.routers import (
     auth,
     cash,
+    fiscal,
     health,
     inventory,
     invoices,
@@ -38,3 +39,4 @@ app.include_router(sales.router)
 app.include_router(invoices.router)
 app.include_router(payments.router)
 app.include_router(webhooks.router)
+app.include_router(fiscal.router)

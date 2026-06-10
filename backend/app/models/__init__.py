@@ -1,8 +1,10 @@
 """Paquete de modelos. Importar aquí cada modelo para que Alembic los registre."""
 
 from app.models.cash_register_session import CashRegisterSession, CashSessionStatus
+from app.models.fiscal_emission import FiscalEmission, FiscalProvider
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.invoice import DianStatus, Invoice
+from app.models.invoice_resolution import InvoiceResolution
 from app.models.invoice_sequence import InvoiceSequence
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.product import IVA_RATE_BPS, IvaRate, Product, ProductUnit
@@ -16,8 +18,11 @@ __all__ = [
     "CashRegisterSession",
     "CashSessionStatus",
     "DianStatus",
+    "FiscalEmission",
+    "FiscalProvider",
     "InventoryMovement",
     "Invoice",
+    "InvoiceResolution",
     "InvoiceSequence",
     "IvaRate",
     "MovementType",

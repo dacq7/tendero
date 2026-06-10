@@ -21,5 +21,5 @@ class InvoiceRead(BaseModel):
     total_centavos: int
     metodo_pago: PaymentMethod
     dian_status: DianStatus
-    cufe: str | None
+    cufe: str | None = None
     created_at: datetime

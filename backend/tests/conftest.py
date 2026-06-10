@@ -122,13 +122,23 @@ def _truncate(_engine: Engine):
     with _engine.connect() as conn:
         conn.execute(
             text(
-                "TRUNCATE TABLE payments, webhook_events, sale_items, invoices, sales, "
-                "cash_register_sessions, invoice_sequences, inventory_movements, "
-                "products, suppliers, users RESTART IDENTITY CASCADE"
+                "TRUNCATE TABLE fiscal_emissions, invoice_resolutions, payments, "
+                "webhook_events, sale_items, invoices, sales, cash_register_sessions, "
+                "invoice_sequences, inventory_movements, products, suppliers, users "
+                "RESTART IDENTITY CASCADE"
             )
         )
-        # invoice_sequences se truncó: re-sembrar la serie POS (como la migración).
+        # Re-sembrar lo que la migración siembra: serie POS y resolución DIAN de demo.
         conn.execute(text("INSERT INTO invoice_sequences (serie, last_numero) VALUES ('POS', 0)"))
+        conn.execute(
+            text(
+                "INSERT INTO invoice_resolutions (numero_resolucion, prefijo, numero_desde, "
+                "numero_hasta, last_numero, vigencia_desde, vigencia_hasta, rut_nit, "
+                "responsabilidad, activa, created_at) VALUES ('DEMO-18764', 'SETP', 990000001, "
+                "995000000, 990000000, '2020-01-01', '2035-12-31', '900000000-0', '52', "
+                "true, now())"
+            )
+        )
         conn.commit()
 
 
