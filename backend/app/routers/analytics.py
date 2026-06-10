@@ -18,11 +18,26 @@ from app.schemas.analytics import (
     AnalyticsSummary,
     ByCashierRow,
     ByMethodRow,
+    CustomerSegments,
     Granularidad,
+    GrowthPoint,
     InventoryStats,
+    LowStockRow,
     PeakHourCell,
+    ProfitCategory,
+    ProfitMatrix,
+    ProfitProduct,
+    Projection,
+    ReorderRow,
+    RotacionResumen,
+    StockoutRow,
+    SupplierConcentration,
+    SupplierMargin,
+    SupplierPurchases,
+    TicketBucket,
     TimeSeriesPoint,
     TopCategory,
+    TopCustomer,
     TopProduct,
 )
 from app.services import analytics_service
@@ -147,9 +162,223 @@ def get_inventory(
         raise http_error(exc) from exc
 
 
+# ───────────────────── Fase 5.2: analítica profesional ─────────────────────
+
+
+@router.get("/profit-products", response_model=list[ProfitProduct])
+def get_profit_products(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[ProfitProduct]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.profit_products(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/profit-categories", response_model=list[ProfitCategory])
+def get_profit_categories(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[ProfitCategory]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.profit_categories(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/profit-matrix", response_model=ProfitMatrix)
+def get_profit_matrix(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> ProfitMatrix:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.profit_matrix(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/inventory-rotation", response_model=RotacionResumen)
+def get_inventory_rotation(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> RotacionResumen:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.inventory_rotation(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/stockouts", response_model=list[StockoutRow])
+def get_stockouts(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[StockoutRow]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.stockouts(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/low-stock", response_model=list[LowStockRow])
+def get_low_stock(session: Session = Depends(get_session)) -> list[LowStockRow]:
+    return analytics_service.low_stock(session)
+
+
+@router.get("/reorder", response_model=list[ReorderRow])
+def get_reorder(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[ReorderRow]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.reorder_suggestions(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/suppliers/purchases", response_model=list[SupplierPurchases])
+def get_supplier_purchases(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[SupplierPurchases]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.suppliers_purchases(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/suppliers/margin", response_model=list[SupplierMargin])
+def get_supplier_margin(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[SupplierMargin]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.suppliers_margin(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/suppliers/concentration", response_model=SupplierConcentration)
+def get_supplier_concentration(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> SupplierConcentration:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.supplier_concentration(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/customers/top", response_model=list[TopCustomer])
+def get_top_customers(
+    desde: date | None = None,
+    hasta: date | None = None,
+    limit: int = Query(default=10, ge=1, le=50),
+    session: Session = Depends(get_session),
+) -> list[TopCustomer]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.top_customers(session, d, h, limit)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/customers/segments", response_model=CustomerSegments)
+def get_customer_segments(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> CustomerSegments:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.customer_segments(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/growth", response_model=list[GrowthPoint])
+def get_growth(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[GrowthPoint]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.growth(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/ticket-by-hour", response_model=list[TicketBucket])
+def get_ticket_by_hour(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[TicketBucket]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.ticket_by_hour(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/ticket-by-dow", response_model=list[TicketBucket])
+def get_ticket_by_dow(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> list[TicketBucket]:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.ticket_by_dow(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
+@router.get("/projection", response_model=Projection)
+def get_projection(
+    desde: date | None = None,
+    hasta: date | None = None,
+    session: Session = Depends(get_session),
+) -> Projection:
+    d, h = _rango(desde, hasta)
+    try:
+        return analytics_service.projection(session, d, h)
+    except AnalyticsError as exc:
+        raise http_error(exc) from exc
+
+
 @router.get("/export.csv")
 def export_csv(
-    dataset: Literal["summary", "timeseries", "top-products"] = "summary",
+    dataset: Literal[
+        "summary",
+        "timeseries",
+        "top-products",
+        "profit-products",
+        "profit-categories",
+        "inventory-rotation",
+        "suppliers",
+        "customers",
+        "growth",
+    ] = "summary",
     desde: date | None = None,
     hasta: date | None = None,
     granularidad: Granularidad = Granularidad.dia,

@@ -11,8 +11,17 @@ sesión real). Fase 3: Pagos Wompi sandbox (mock de demo). Fase 4: Facturación 
 (mock → PT). Fase 5: Analítica (seed de demo + agregaciones + dashboard). Fase 6 parte A
 (bugs de Vender/Caja) y parte A.2 (UI de admin completa: inventario CRUD,
 movimientos, proveedores, kardex, detalle de venta, resoluciones DIAN, historial
-de cajas) COMPLETAS. Queda la Fase 6 parte B (e2e Playwright, hardening de
-seguridad, deploy) — ver Pendientes.
+de cajas) COMPLETAS. Fase 5.2 (analítica profesional) COMPLETA: rentabilidad y
+márgenes (matriz estrella/perro), inventario inteligente (rotación REAL en
+veces/año + días de inventario + capital inmovilizado + recompra), proveedores
+(compras/margen/concentración), clientes (mejores + segmento recurrente/anónimo,
+documento ENMASCARADO por Habeas Data), tendencias (MoM/YoY/ticket por hora-día/
+proyección). Dashboard reorganizado en pestañas con fetch lazy; CSV por sección
+saneado contra inyección de fórmulas; seed de demo ampliado a 18 meses con
+proveedores, clientes recurrentes y reposición proporcional al consumo. Queda la
+Fase 6 parte B (e2e Playwright, hardening de seguridad, deploy) — ver Pendientes.
+NOTA: la analítica es de NEGOCIO, no contabilidad formal; "utilidad" = utilidad
+bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.

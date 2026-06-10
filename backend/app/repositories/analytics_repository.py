@@ -10,9 +10,19 @@ from datetime import datetime
 from sqlalchemy import BigInteger, cast, func
 from sqlmodel import Session, select
 
+from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
 from app.models.sale import PaymentMethod, Sale, SaleItem, SaleStatus
+from app.models.supplier import Supplier
 from app.models.user import User
+
+
+def _purchase_expr():
+    """costo_unitario × cantidad de una entrada (cast BigInteger anti-overflow)."""
+    return (
+        cast(InventoryMovement.costo_unitario_centavos, BigInteger)
+        * InventoryMovement.cantidad_milesimas
+    )
 
 # Unidad de date_trunc por granularidad.
 TRUNC = {"dia": "day", "semana": "week", "mes": "month", "ano": "year"}
@@ -174,6 +184,218 @@ def low_stock_count(session: Session) -> int:
         .where(Product.stock_milesimas <= Product.stock_minimo_milesimas)
     )
     return int(session.exec(stmt).one())
+
+
+# ───────────────────── Fase 5.2: analítica profesional ─────────────────────
+
+
+def profit_by_product(session: Session, desde: datetime, hasta: datetime):
+    """Por producto (TODOS): (product_id, nombre, ventas, cantidad, base, cogs_num)."""
+    stmt = (
+        select(
+            SaleItem.product_id,
+            SaleItem.nombre_snapshot,
+            func.sum(SaleItem.total_linea_centavos),
+            func.sum(SaleItem.cantidad_milesimas),
+            func.sum(SaleItem.base_centavos),
+            func.sum(_cogs_expr()),
+        )
+        .select_from(SaleItem)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(SaleItem.product_id, SaleItem.nombre_snapshot)
+    )
+    return session.exec(stmt).all()
+
+
+def profit_by_category(session: Session, desde: datetime, hasta: datetime):
+    """Por categoría (TODAS): (categoria, ventas, base, cogs_num)."""
+    cat = func.coalesce(Product.categoria, "Sin categoría").label("categoria")
+    stmt = (
+        select(
+            cat,
+            func.sum(SaleItem.total_linea_centavos),
+            func.sum(SaleItem.base_centavos),
+            func.sum(_cogs_expr()),
+        )
+        .select_from(SaleItem)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+        .join(Product, Product.id == SaleItem.product_id)
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(cat)
+    )
+    return session.exec(stmt).all()
+
+
+def cogs_by_product(session: Session, desde: datetime, hasta: datetime) -> dict[int, int]:
+    """{product_id: cogs_num} de ventas pagadas (para rotación por producto)."""
+    stmt = (
+        select(SaleItem.product_id, func.sum(_cogs_expr()))
+        .select_from(SaleItem)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(SaleItem.product_id)
+    )
+    return {pid: int(cogs) for pid, cogs in session.exec(stmt).all()}
+
+
+def qty_by_product(session: Session, desde: datetime, hasta: datetime) -> dict[int, int]:
+    """{product_id: unidades_vendidas_milesimas} (para consumo diario / recompra)."""
+    stmt = (
+        select(SaleItem.product_id, func.sum(SaleItem.cantidad_milesimas))
+        .select_from(SaleItem)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(SaleItem.product_id)
+    )
+    return {pid: int(q) for pid, q in session.exec(stmt).all()}
+
+
+def active_products(session: Session):
+    """Productos activos (id, nombre, stock, costo, mínimo) para inventario."""
+    stmt = select(
+        Product.id,
+        Product.nombre,
+        Product.stock_milesimas,
+        Product.precio_costo_centavos,
+        Product.stock_minimo_milesimas,
+    ).where(Product.activo)
+    return session.exec(stmt).all()
+
+
+def stockouts(session: Session, desde: datetime, hasta: datetime):
+    """Productos que tocaron 0 en el kardex: (product_id, nombre, veces, ultimo)."""
+    stmt = (
+        select(
+            InventoryMovement.product_id,
+            Product.nombre,
+            func.count(),
+            func.max(InventoryMovement.created_at),
+        )
+        .select_from(InventoryMovement)
+        .join(Product, Product.id == InventoryMovement.product_id)
+        .where(InventoryMovement.stock_resultante_milesimas == 0)
+        .where(InventoryMovement.created_at >= desde)
+        .where(InventoryMovement.created_at < hasta)
+        .group_by(InventoryMovement.product_id, Product.nombre)
+        .order_by(func.count().desc())
+    )
+    return session.exec(stmt).all()
+
+
+def low_stock_list(session: Session):
+    """Productos activos en o bajo el mínimo (mínimo > 0)."""
+    stmt = (
+        select(
+            Product.id,
+            Product.nombre,
+            Product.stock_milesimas,
+            Product.stock_minimo_milesimas,
+        )
+        .where(Product.activo)
+        .where(Product.stock_minimo_milesimas > 0)
+        .where(Product.stock_milesimas <= Product.stock_minimo_milesimas)
+        .order_by(Product.nombre)
+    )
+    return session.exec(stmt).all()
+
+
+def purchases_by_supplier(session: Session, desde: datetime, hasta: datetime):
+    """Compras por proveedor desde entradas: (supplier_id, nombre, compras_num, vol, n)."""
+    stmt = (
+        select(
+            Supplier.id,
+            Supplier.nombre,
+            func.sum(_purchase_expr()),
+            func.sum(InventoryMovement.cantidad_milesimas),
+            func.count(),
+        )
+        .select_from(InventoryMovement)
+        .join(Product, Product.id == InventoryMovement.product_id)
+        .join(Supplier, Supplier.id == Product.supplier_id)
+        .where(InventoryMovement.tipo == MovementType.entrada)
+        .where(InventoryMovement.costo_unitario_centavos.is_not(None))
+        .where(InventoryMovement.created_at >= desde)
+        .where(InventoryMovement.created_at < hasta)
+        .group_by(Supplier.id, Supplier.nombre)
+        .order_by(func.sum(_purchase_expr()).desc())
+    )
+    return session.exec(stmt).all()
+
+
+def margin_by_supplier(session: Session, desde: datetime, hasta: datetime):
+    """Margen aportado por proveedor: (supplier_id, nombre, ventas, base, cogs_num).
+    Incluye 'Sin proveedor' (LEFT JOIN) para que los totales cuadren."""
+    nombre = func.coalesce(Supplier.nombre, "Sin proveedor").label("nombre")
+    stmt = (
+        select(
+            Product.supplier_id,
+            nombre,
+            func.sum(SaleItem.total_linea_centavos),
+            func.sum(SaleItem.base_centavos),
+            func.sum(_cogs_expr()),
+        )
+        .select_from(SaleItem)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+        .join(Product, Product.id == SaleItem.product_id)
+        .join(Supplier, Supplier.id == Product.supplier_id, isouter=True)
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(Product.supplier_id, nombre)
+        .order_by(func.sum(SaleItem.total_linea_centavos).desc())
+    )
+    return session.exec(stmt).all()
+
+
+def top_customers(session: Session, desde: datetime, hasta: datetime, limit: int):
+    """Mejores clientes por gasto (agrupa por customer_doc, no nulo)."""
+    stmt = (
+        select(
+            Sale.customer_doc,
+            func.max(Sale.customer_nombre),
+            func.sum(Sale.total_centavos),
+            func.count(),
+            func.max(Sale.paid_at),
+        )
+        .where(_ventas_pagadas(desde, hasta))
+        .where(Sale.customer_doc.is_not(None))
+        .group_by(Sale.customer_doc)
+        .order_by(func.sum(Sale.total_centavos).desc())
+        .limit(limit)
+    )
+    return session.exec(stmt).all()
+
+
+def customer_segments(session: Session, desde: datetime, hasta: datetime):
+    """(identificado: bool, ventas, n) — recurrente/identificado vs anónimo."""
+    identificado = Sale.customer_doc.is_not(None).label("identificado")
+    stmt = (
+        select(identificado, func.sum(Sale.total_centavos), func.count())
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(identificado)
+    )
+    return session.exec(stmt).all()
+
+
+def ticket_by_hour(session: Session, desde: datetime, hasta: datetime):
+    hour = func.extract("hour", Sale.paid_at).label("hour")
+    stmt = (
+        select(hour, func.sum(Sale.total_centavos), func.count())
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(hour)
+        .order_by(hour)
+    )
+    return session.exec(stmt).all()
+
+
+def ticket_by_dow(session: Session, desde: datetime, hasta: datetime):
+    dow = func.extract("dow", Sale.paid_at).label("dow")
+    stmt = (
+        select(dow, func.sum(Sale.total_centavos), func.count())
+        .where(_ventas_pagadas(desde, hasta))
+        .group_by(dow)
+        .order_by(dow)
+    )
+    return session.exec(stmt).all()
 
 
 # Reexport para el service.

@@ -205,6 +205,148 @@ export interface InventoryStats {
   n_stock_bajo: number;
 }
 
+// ── Analítica profesional (Fase 5.2) ──
+
+export interface ProfitProduct {
+  product_id: number;
+  nombre: string;
+  ventas_centavos: number;
+  margen_centavos: number;
+  margen_bps: number | null;
+  contribucion_bps: number | null;
+}
+
+export interface ProfitCategory {
+  categoria: string;
+  ventas_centavos: number;
+  margen_centavos: number;
+  margen_bps: number | null;
+  contribucion_bps: number | null;
+}
+
+export type Cuadrante = "estrella" | "tiron" | "nicho" | "perro";
+
+export interface ProfitMatrixItem {
+  product_id: number;
+  nombre: string;
+  volumen_milesimas: number;
+  ventas_centavos: number;
+  margen_bps: number | null;
+  cuadrante: Cuadrante;
+}
+
+export interface ProfitMatrix {
+  items: ProfitMatrixItem[];
+  umbral_volumen_milesimas: number;
+  umbral_margen_bps: number;
+}
+
+export interface RotacionProducto {
+  product_id: number;
+  nombre: string;
+  stock_valorizado_centavos: number;
+  rotacion_centi: number | null; // veces/año ×100
+  dias_inventario: number | null;
+}
+
+export interface RotacionResumen {
+  stock_valorizado_centavos: number;
+  cogs_periodo_centavos: number;
+  cogs_anualizado_centavos: number;
+  rotacion_centi: number | null;
+  dias_inventario: number | null;
+  capital_inmovilizado_centavos: number;
+  por_producto: RotacionProducto[];
+}
+
+export interface StockoutRow {
+  product_id: number;
+  nombre: string;
+  veces_en_cero: number;
+  ultimo: string;
+}
+
+export interface LowStockRow {
+  product_id: number;
+  nombre: string;
+  stock_milesimas: number;
+  stock_minimo_milesimas: number;
+}
+
+export interface ReorderRow {
+  product_id: number;
+  nombre: string;
+  stock_milesimas: number;
+  stock_minimo_milesimas: number;
+  rotacion_centi: number | null;
+  cantidad_sugerida_milesimas: number;
+}
+
+export interface SupplierPurchases {
+  supplier_id: number;
+  nombre: string;
+  compras_centavos: number;
+  volumen_milesimas: number;
+  n_entradas: number;
+}
+
+export interface SupplierMargin {
+  supplier_id: number | null;
+  nombre: string;
+  ventas_centavos: number;
+  margen_centavos: number;
+  margen_bps: number | null;
+}
+
+export interface SupplierConcentration {
+  n_proveedores: number;
+  concentracion_top1_bps: number | null;
+  concentracion_top3_bps: number | null;
+}
+
+export interface TopCustomer {
+  customer_doc: string;
+  nombre: string | null;
+  gasto_centavos: number;
+  n_compras: number;
+  ticket_promedio_centavos: number;
+  ultima: string | null;
+}
+
+export interface CustomerSegment {
+  ventas_centavos: number;
+  n_transacciones: number;
+  ticket_promedio_centavos: number;
+}
+
+export interface CustomerSegments {
+  identificado: CustomerSegment;
+  anonimo: CustomerSegment;
+}
+
+export interface GrowthPoint {
+  periodo: string;
+  ventas_centavos: number;
+  margen_centavos: number;
+  mom_bps: number | null;
+  yoy_bps: number | null;
+}
+
+export interface TicketBucket {
+  bucket: number;
+  ventas_centavos: number;
+  n_transacciones: number;
+  ticket_promedio_centavos: number;
+}
+
+export interface Projection {
+  ventas_actual_centavos: number;
+  ventas_proyectada_centavos: number;
+  dias_transcurridos: number;
+  dias_periodo: number;
+  es_estimacion: boolean;
+}
+
 export const PAYMENT_METHODS = [
   "efectivo",
   "transferencia",

@@ -3,9 +3,11 @@
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, func, select
 
+from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem, SaleStatus
-from app.seed_demo import INITIAL_STOCK, seed_demo
+from app.models.supplier import Supplier
+from app.seed_demo import seed_demo
 
 
 def test_seed_idempotente_y_determinista(_engine: Engine) -> None:
@@ -21,9 +23,7 @@ def test_seed_produce_datos_consistentes(_engine: Engine) -> None:
     with Session(_engine) as s:
         # Todas las ventas del seed son pagadas y con fecha de cobro.
         n = s.exec(select(func.count()).select_from(Sale)).one()
-        n_pagadas = s.exec(
-            select(func.count()).where(Sale.status == SaleStatus.pagada)
-        ).one()
+        n_pagadas = s.exec(select(func.count()).where(Sale.status == SaleStatus.pagada)).one()
         assert n_pagadas == n and n > 0
         assert s.exec(select(func.count()).where(Sale.paid_at.is_(None))).one() == 0
 
@@ -37,12 +37,27 @@ def test_seed_produce_datos_consistentes(_engine: Engine) -> None:
             # El costo quedó congelado (snapshot > 0 para márgenes históricos).
             assert all(i.costo_unitario_snapshot_centavos > 0 for i in items)
 
-        # Stock coherente: stock final + lo vendido = carga inicial, por producto.
+        # Stock coherente con el kardex: stock final = Σ entradas − Σ salidas.
         productos = s.exec(select(Product)).all()
         for p in productos:
-            vendido = s.exec(
-                select(func.coalesce(func.sum(SaleItem.cantidad_milesimas), 0)).where(
-                    SaleItem.product_id == p.id
+            entradas = s.exec(
+                select(func.coalesce(func.sum(InventoryMovement.cantidad_milesimas), 0)).where(
+                    InventoryMovement.product_id == p.id,
+                    InventoryMovement.tipo == MovementType.entrada,
                 )
             ).one()
-            assert p.stock_milesimas + vendido == INITIAL_STOCK
+            salidas = s.exec(
+                select(func.coalesce(func.sum(InventoryMovement.cantidad_milesimas), 0)).where(
+                    InventoryMovement.product_id == p.id,
+                    InventoryMovement.tipo == MovementType.salida,
+                )
+            ).one()
+            assert p.stock_milesimas == entradas - salidas
+            # Cada producto demo tiene proveedor asignado.
+            assert p.supplier_id is not None
+
+        # Proveedores sembrados y ventas con mezcla de clientes recurrentes/anónimos.
+        assert s.exec(select(func.count()).select_from(Supplier)).one() == 5
+        identificadas = s.exec(select(func.count()).where(Sale.customer_doc.is_not(None))).one()
+        anonimas = s.exec(select(func.count()).where(Sale.customer_doc.is_(None))).one()
+        assert identificadas > 0 and anonimas > 0
