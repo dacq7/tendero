@@ -70,8 +70,11 @@ export default function ClientesTab({ rango }: { rango: Rango }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-niebla">
-                  {f.data.top.map((c) => (
-                    <tr key={c.customer_doc}>
+                  {/* key = índice: customer_doc viene ENMASCARADO (últimos 4 dígitos
+                      por Habeas Data) y NO es único; el ranking es estático (no se
+                      reordena ni filtra en el cliente), así que el índice es estable. */}
+                  {f.data.top.map((c, i) => (
+                    <tr key={i}>
                       <td className="py-1.5 text-tinta">
                         {c.nombre ?? "—"}
                         <span className="ml-1 text-xs text-grafito">· {c.customer_doc}</span>
