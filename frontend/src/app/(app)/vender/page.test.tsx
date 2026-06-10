@@ -117,4 +117,96 @@ describe("VenderPage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No hay caja abierta");
   });
+
+  it("cobro Wompi: tarjeta → procesando → simular aprobar → ticket", async () => {
+    const ventaPendiente = {
+      id: 7,
+      subtotal_centavos: 100000,
+      iva_total_centavos: 19000,
+      total_centavos: 119000,
+      status: "pendiente_pago",
+      metodo_pago: "tarjeta",
+      paid_at: null,
+      created_at: "2026-06-10T12:00:00",
+      items: [
+        {
+          id: 1,
+          nombre_snapshot: "Gaseosa 400ml",
+          sku_snapshot: "G1",
+          cantidad_milesimas: 1000,
+          precio_unitario_centavos: 100000,
+          base_centavos: 100000,
+          iva_centavos: 19000,
+          total_linea_centavos: 119000,
+        },
+      ],
+      invoice: null,
+    };
+    const ventaPagada = {
+      ...ventaPendiente,
+      status: "pagada",
+      invoice: {
+        id: 1,
+        sale_id: 7,
+        numero_completo: "POS-000007",
+        subtotal_centavos: 100000,
+        iva_total_centavos: 19000,
+        total_centavos: 119000,
+        metodo_pago: "tarjeta",
+        dian_status: "none",
+        created_at: "2026-06-10T12:00:00",
+      },
+    };
+    apiPostMock.mockImplementation(async (path: string) => {
+      if (path === "sales") return ventaPendiente;
+      if (path === "payments")
+        return { id: 99, sale_id: 7, provider: "mock", metodo: "tarjeta", status: "pending", monto_centavos: 119000, referencia: "SALE-000007", wompi_transaction_id: "mock-tx-1", wompi_public_key: "pub_test" };
+      return { ok: true }; // simulate
+    });
+    apiGetMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("sales/")) return ventaPagada;
+      return [PRODUCTO]; // búsqueda de productos
+    });
+
+    const user = userEvent.setup();
+    render(<VenderPage />);
+
+    await user.type(screen.getByLabelText("Buscar producto"), "gas");
+    await user.click(await screen.findByText("Gaseosa 400ml"));
+    await user.click(screen.getByRole("button", { name: "Cobrar" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Cobro" });
+    await user.click(within(dialog).getByRole("button", { name: "Tarjeta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Confirmar" }));
+
+    // Estado asíncrono: pantalla "Procesando pago" con simulación (mock).
+    expect(await screen.findByText("Procesando pago")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Aprobar" }));
+
+    // Confirmado: ticket con el número de factura real.
+    expect(await screen.findByText("POS-000007")).toBeInTheDocument();
+  });
+
+  it("cobro Wompi rechazado muestra el mensaje de rechazo", async () => {
+    apiPostMock.mockImplementation(async (path: string) => {
+      if (path === "sales")
+        return { id: 8, subtotal_centavos: 100000, iva_total_centavos: 19000, total_centavos: 119000, status: "pendiente_pago", metodo_pago: "nequi", paid_at: null, created_at: "x", items: [], invoice: null };
+      if (path === "payments")
+        return { id: 100, sale_id: 8, provider: "mock", metodo: "nequi", status: "pending", monto_centavos: 119000, referencia: "SALE-000008", wompi_transaction_id: "mock-tx-2", wompi_public_key: null };
+      return { ok: true };
+    });
+
+    const user = userEvent.setup();
+    render(<VenderPage />);
+
+    await user.type(screen.getByLabelText("Buscar producto"), "gas");
+    await user.click(await screen.findByText("Gaseosa 400ml"));
+    await user.click(screen.getByRole("button", { name: "Cobrar" }));
+    const dialog = screen.getByRole("dialog", { name: "Cobro" });
+    await user.click(within(dialog).getByRole("button", { name: "Nequi" }));
+    await user.click(within(dialog).getByRole("button", { name: "Confirmar" }));
+
+    await user.click(await screen.findByRole("button", { name: "Rechazar" }));
+    expect(await screen.findByText("Pago rechazado")).toBeInTheDocument();
+  });
 });

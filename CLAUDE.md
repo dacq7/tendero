@@ -5,11 +5,11 @@ Guía para agentes (Claude Code) que trabajen en este repo. Complementa
 suposición tuya, **gana esto** — son decisiones ya tomadas y verificadas en Fase 0.
 
 ## Estado
-Fases 0, 1 y 2 COMPLETAS. Fase 0: cimientos (monorepo, Postgres, FastAPI en capas,
-Alembic, auth con roles, login) + tests base y docs (0.7). Fase 1: Inventario
-(backend). Fase 2: Ventas + Caja + Factura interna (backend **y** frontend, incl.
-la sesión real y la UI de Inventario que se habían diferido). Siguiente: Fase 3
-(Pagos Wompi sandbox). Las fases siguen la sección 9 del brief, una por `/feature`.
+Fases 0, 1, 2 y 3 COMPLETAS. Fase 0: cimientos + tests base y docs (0.7). Fase 1:
+Inventario (backend). Fase 2: Ventas + Caja + Factura interna (backend y frontend,
+incl. sesión real y UI de Inventario). Fase 3: Pagos Wompi sandbox (backend y
+frontend, modo mock como camino de demo). Siguiente: Fase 4 (Facturación DIAN
+mock → PT). Las fases siguen la sección 9 del brief, una por `/feature`.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
@@ -55,9 +55,29 @@ la sesión real y la UI de Inventario que se habían diferido). Siguiente: Fase 
 - Pantallas (dirección "Rótulo"): **Vender** (protagonista: buscador, carrito,
   totales/IVA en vivo, cobro y **ticket** = elemento audaz), **Caja** (abrir/cerrar
   con arqueo), **Inventario** (lista + alertas), **Historial** (facturas).
-- Tests: backend 76 (venta atómica/rollback, numeración SIN duplicados bajo
-  **concurrencia real**, IVA/totales, arqueo, permisos por dueño); frontend 16
-  Vitest (carrito/dinero puro, login, flujo de venta carrito→cobro→ticket).
+- Tests: backend (venta atómica/rollback, numeración SIN duplicados bajo
+  **concurrencia real**, IVA/totales, arqueo, permisos por dueño); frontend Vitest
+  (carrito/dinero puro, login, flujo de venta carrito→cobro→ticket).
+
+## Fase 3 — Pagos Wompi (sandbox)
+- **Mock es el camino principal de demo** (sin llaves): `MockWompiProvider` con
+  firmas SHA256 REALES contra secretos de prueba. `RealWompiProvider` existe y mapea
+  al API real (Widget; llave privada solo en server) pero no corre sin llaves.
+  Conmutable por `WOMPI_PROVIDER=mock|real`. Interfaz en `services/payments/`.
+- **Flujo async (rediseño confirmado)**: la venta por tarjeta/PSE/Nequi nace
+  `pendiente_pago` y RESERVA stock al crear; la factura se numera y la venta se marca
+  `pagada` SOLO cuando el webhook confirma (approved). Rechazo → `rechazada` + reverso
+  de stock (`MovementType.reverso_venta`, suma sin recostear) y NO consume número.
+  Efectivo/transferencia siguen el cobro local síncrono de Fase 2 (intacto).
+- **Webhook idempotente** (`/webhooks/wompi`, público, sin auth): valida firma
+  (timing-safe, allowlist de propiedades), coteja monto+referencia contra el Payment,
+  y usa `webhook_events UNIQUE(provider,event_id)` con SAVEPOINT como candado (resiste
+  concurrencia). Modelos `Payment`, `WebhookEvent`. Migración `9a1dd4b41864`.
+- `/payments` inicia el pago (idempotente por venta); `/payments/{id}/simulate` solo
+  en mock (cierra el ciclo en demo con firma válida). `SaleRead.invoice` es opcional.
+  Cierre de caja bloquea si hay ventas `pendiente_pago` en vuelo.
+- Frontend: Vender refleja el estado async (cobrar → **procesando** → ticket/rechazado),
+  con polling en real y botones de simulación en mock. Lógica pura en `lib/cobro.ts`.
 
 ## Puertos (fijados para esta máquina; NO cambiar sin actualizar este archivo)
 - Postgres (Docker): **5436**

@@ -10,9 +10,11 @@ from app.routers import (
     health,
     inventory,
     invoices,
+    payments,
     products,
     sales,
     suppliers,
+    webhooks,
 )
 
 app = FastAPI(title="Tendero API", version="0.0.0")
@@ -34,3 +36,5 @@ app.include_router(inventory.router)
 app.include_router(cash.router)
 app.include_router(sales.router)
 app.include_router(invoices.router)
+app.include_router(payments.router)
+app.include_router(webhooks.router)

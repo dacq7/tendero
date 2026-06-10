@@ -13,16 +13,21 @@ from app.models.product import IvaRate
 
 
 class SaleStatus(StrEnum):
-    pendiente = "pendiente"  # creada, aún sin cobrar
-    pagada = "pagada"  # cobro registrado
-    anulada = "anulada"  # reversada (previsto; endpoint no implementado en Fase 2)
+    pendiente = "pendiente"  # creada, aún sin cobrar (cobro local en curso)
+    pendiente_pago = "pendiente_pago"  # pago Wompi iniciado, esperando webhook
+    pagada = "pagada"  # cobro confirmado
+    rechazada = "rechazada"  # pago Wompi declinado/expirado; venta sin cobro
+    anulada = "anulada"  # reversada (previsto; endpoint no implementado)
 
 
 class PaymentMethod(StrEnum):
+    # Cobro local (síncrono): efectivo y transferencia.
     efectivo = "efectivo"
-    tarjeta = "tarjeta"
-    nequi = "nequi"
     transferencia = "transferencia"
+    # Cobro Wompi (asíncrono): tarjeta, PSE, Nequi.
+    tarjeta = "tarjeta"
+    pse = "pse"
+    nequi = "nequi"
 
 
 class Sale(SQLModel, table=True):

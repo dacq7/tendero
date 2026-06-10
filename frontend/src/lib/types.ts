@@ -57,9 +57,25 @@ export interface SaleRead {
   total_centavos: number;
   status: string;
   metodo_pago: string | null;
+  paid_at: string | null;
   created_at: string;
   items: SaleItemRead[];
-  invoice: InvoiceRead;
+  // null mientras el pago Wompi no se confirma (pendiente_pago / rechazada).
+  invoice: InvoiceRead | null;
+}
+
+export type PaymentStatus = "pending" | "approved" | "declined" | "error" | "voided";
+
+export interface PaymentRead {
+  id: number;
+  sale_id: number;
+  provider: string;
+  metodo: string;
+  status: PaymentStatus;
+  monto_centavos: number;
+  referencia: string;
+  wompi_transaction_id: string | null;
+  wompi_public_key: string | null;
 }
 
 export interface CashSession {
@@ -74,5 +90,14 @@ export interface CashSession {
   diferencia_centavos: number | null;
 }
 
-export const PAYMENT_METHODS = ["efectivo", "tarjeta", "nequi", "transferencia"] as const;
+export const PAYMENT_METHODS = [
+  "efectivo",
+  "transferencia",
+  "tarjeta",
+  "pse",
+  "nequi",
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+// Métodos que se cobran por Wompi (asíncrono); el resto es cobro local.
+export const WOMPI_METHODS: ReadonlySet<string> = new Set(["tarjeta", "pse", "nequi"]);

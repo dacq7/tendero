@@ -58,7 +58,8 @@ class SaleRead(BaseModel):
     created_at: datetime
     paid_at: datetime | None
     items: list[SaleItemRead]
-    invoice: InvoiceRead
+    # None mientras el pago Wompi no se confirma (venta pendiente_pago/rechazada).
+    invoice: InvoiceRead | None
 
 
 class SaleSummary(BaseModel):

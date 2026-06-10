@@ -97,9 +97,9 @@ def test_cajero_no_ve_detalle_de_caja_de_otro(
     client: TestClient, admin_user, cajero_headers: dict
 ) -> None:
     admin_h = auth_headers(client, "admin@test.co", "Test1234!")
-    cid = client.post(
-        "/cash/sessions", json={"monto_inicial_centavos": 0}, headers=admin_h
-    ).json()["id"]
+    cid = client.post("/cash/sessions", json={"monto_inicial_centavos": 0}, headers=admin_h).json()[
+        "id"
+    ]
     # El cajero intenta ver el detalle de la caja del admin.
     assert client.get(f"/cash/sessions/{cid}", headers=cajero_headers).status_code == 403
 

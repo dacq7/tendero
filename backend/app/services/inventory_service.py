@@ -57,6 +57,11 @@ def apply_movement(
             cantidad_milesimas,
             costo_unitario_centavos,
         )
+    elif tipo == MovementType.reverso_venta:
+        # Devuelve lo reservado por una venta rechazada. Suma SIN recostear: no
+        # es una compra, así que NO toca precio_costo (a diferencia de entrada).
+        magnitud = cantidad_milesimas
+        nuevo_stock = stock_actual + cantidad_milesimas
     elif tipo in _DESCUENTAN:
         magnitud = cantidad_milesimas
         nuevo_stock = stock_actual - cantidad_milesimas

@@ -88,8 +88,8 @@ def close_session(
         raise ForbiddenCashSession("No puedes cerrar una caja que no es tuya")
     if cash.status == CashSessionStatus.cerrada:
         raise CashSessionAlreadyClosed("La caja ya está cerrada")
-    if sale_repository.count_pending(session, cash.id) > 0:
-        raise SaleHasPendingItems("La caja tiene ventas pendientes de cobro")
+    if sale_repository.count_unresolved(session, cash.id) > 0:
+        raise SaleHasPendingItems("La caja tiene ventas con pago pendiente o en proceso")
 
     esperado = expected_cash(session, cash)
     cash.efectivo_esperado_centavos = esperado

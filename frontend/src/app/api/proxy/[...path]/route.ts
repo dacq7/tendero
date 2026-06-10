@@ -25,6 +25,7 @@ const ALLOWED_PREFIXES = [
   "sales",
   "cash",
   "invoices",
+  "payments",
   "auth/me",
 ];
 

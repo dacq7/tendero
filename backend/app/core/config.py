@@ -22,5 +22,14 @@ class Settings(BaseSettings):
     jwt_access_ttl_min: int = 15
     jwt_refresh_ttl_days: int = 7
 
+    # Pagos Wompi (Fase 3). El proveedor por defecto es 'mock' (camino de demo del
+    # portafolio). 'real' mapea al API de Wompi pero requiere llaves reales.
+    # Las llaves PRIVADAS/secretos viven solo en el servidor (.env), nunca en el repo.
+    wompi_provider: str = "mock"  # mock | real
+    wompi_public_key: str = "pub_test_demo"
+    wompi_private_key: str = ""
+    wompi_integrity_secret: str = "integrity_test_secret"
+    wompi_events_secret: str = "events_test_secret"
+
 
 settings = Settings()

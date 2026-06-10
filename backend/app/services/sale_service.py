@@ -12,7 +12,7 @@ from sqlmodel import Session
 
 from app.models.inventory_movement import MovementType
 from app.models.invoice import Invoice
-from app.models.sale import Sale, SaleItem, SaleStatus
+from app.models.sale import PaymentMethod, Sale, SaleItem, SaleStatus
 from app.models.user import User, UserRole
 from app.repositories import (
     cash_repository,
@@ -24,12 +24,37 @@ from app.schemas.sale import SaleCreate
 from app.services import inventory_service, product_service, sale_pricing
 from app.services.sales_errors import (
     EmptySale,
-    InvoiceNotFound,
     NoCashSessionOpen,
     SaleNotFound,
 )
 
 _SERIE = "POS"
+
+# Métodos que se cobran por Wompi (asíncrono). El resto es cobro local (síncrono).
+WOMPI_METHODS = frozenset({PaymentMethod.tarjeta, PaymentMethod.pse, PaymentMethod.nequi})
+
+
+def emit_invoice(
+    session: Session, sale: Sale, *, metodo_pago: PaymentMethod, wompi_transaction_id=None
+) -> Invoice:
+    """Numera y crea la factura interna de una venta (sin huecos ni duplicados).
+
+    Reutilizada por el cobro local (en create_sale) y por el webhook approved.
+    """
+    numero = invoice_sequence_repository.next_numero(session, _SERIE)
+    invoice = Invoice(
+        sale_id=sale.id,
+        serie=_SERIE,
+        numero=numero,
+        numero_completo=f"{_SERIE}-{numero:06d}",
+        subtotal_centavos=sale.subtotal_centavos,
+        iva_total_centavos=sale.iva_total_centavos,
+        total_centavos=sale.total_centavos,
+        metodo_pago=metodo_pago,
+        wompi_transaction_id=wompi_transaction_id,
+    )
+    invoice_repository.add(session, invoice)
+    return invoice
 
 
 def create_sale(session: Session, data: SaleCreate, *, user_id: int) -> Sale:
@@ -58,8 +83,10 @@ def create_sale(session: Session, data: SaleCreate, *, user_id: int) -> Sale:
         calculadas.append((product, linea, lt))
 
     totals = sale_pricing.sale_totals([lt for _, _, lt in calculadas])
+    es_wompi = data.metodo_pago in WOMPI_METHODS
 
     # 2) Crear la venta (con totales coherentes con el CHECK total = subtotal + iva).
+    # Wompi: nace 'pendiente_pago' (la confirma el webhook). Local: se cobra ya.
     sale = Sale(
         cash_session_id=cash.id,
         user_id=user_id,
@@ -68,7 +95,8 @@ def create_sale(session: Session, data: SaleCreate, *, user_id: int) -> Sale:
         subtotal_centavos=totals.subtotal_centavos,
         iva_total_centavos=totals.iva_total_centavos,
         total_centavos=totals.total_centavos,
-        status=SaleStatus.pendiente,
+        status=SaleStatus.pendiente_pago if es_wompi else SaleStatus.pendiente,
+        metodo_pago=data.metodo_pago,
     )
     sale_repository.add(session, sale)
 
@@ -91,23 +119,18 @@ def create_sale(session: Session, data: SaleCreate, *, user_id: int) -> Sale:
             ),
         )
 
-    # 4) Factura interna con número secuencial (sin huecos ni duplicados).
-    numero = invoice_sequence_repository.next_numero(session, _SERIE)
-    invoice = Invoice(
-        sale_id=sale.id,
-        serie=_SERIE,
-        numero=numero,
-        numero_completo=f"{_SERIE}-{numero:06d}",
-        subtotal_centavos=totals.subtotal_centavos,
-        iva_total_centavos=totals.iva_total_centavos,
-        total_centavos=totals.total_centavos,
-        metodo_pago=data.metodo_pago,
-    )
-    invoice_repository.add(session, invoice)
+    # 4) Cierre del cobro.
+    if es_wompi:
+        # Pago asíncrono: el stock queda RESERVADO, pero NO se numera factura ni
+        # se marca pagada hasta que el webhook confirme (numeración sin huecos:
+        # un pago rechazado no consume número). El pago se inicia con POST /payments.
+        session.commit()
+        session.refresh(sale)
+        return sale
 
-    # 5) Cobro local (sin Wompi en Fase 2): marcar pagada.
+    # Cobro local (efectivo/transferencia): factura + pagada en el mismo commit.
+    emit_invoice(session, sale, metodo_pago=data.metodo_pago)
     sale.status = SaleStatus.pagada
-    sale.metodo_pago = data.metodo_pago
     sale.paid_at = datetime.now(UTC)
     sale_repository.add(session, sale)
 
@@ -144,10 +167,12 @@ def list_sales(
     )
 
 
-def sale_detail(session: Session, sale_id: int) -> tuple[Sale, list[SaleItem], Invoice]:
+def sale_detail(
+    session: Session, sale_id: int
+) -> tuple[Sale, list[SaleItem], Invoice | None]:
+    """Detalle de la venta. `invoice` es None mientras el pago Wompi no se
+    confirma (venta `pendiente_pago`) o si fue `rechazada`."""
     sale = get_sale(session, sale_id)
     items = sale_repository.items_for_sale(session, sale_id)
     invoice = invoice_repository.get_by_sale(session, sale_id)
-    if invoice is None:
-        raise InvoiceNotFound(f"La venta {sale_id} no tiene factura")
     return sale, items, invoice

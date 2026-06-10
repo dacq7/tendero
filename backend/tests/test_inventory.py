@@ -91,6 +91,27 @@ def test_cantidad_cero_da_422(client: TestClient, admin_headers: dict) -> None:
     assert res.status_code == 422
 
 
+def test_reverso_venta_suma_sin_recostear(client: TestClient, admin_headers: dict) -> None:
+    pid = _crear_producto(client, admin_headers, precio_costo_centavos=100000)
+    _movimiento(
+        client,
+        admin_headers,
+        product_id=pid,
+        tipo="entrada",
+        cantidad_milesimas=10000,
+        costo_unitario_centavos=100000,
+    )
+    # Reverso (venta rechazada): suma stock pero NO cambia el costo.
+    res = _movimiento(
+        client, admin_headers, product_id=pid, tipo="reverso_venta", cantidad_milesimas=2000
+    )
+    assert res.status_code == 201
+    assert res.json()["stock_resultante_milesimas"] == 12000
+    p = client.get(f"/products/{pid}", headers=admin_headers).json()
+    assert p["stock_milesimas"] == 12000
+    assert p["precio_costo_centavos"] == 100000  # intacto
+
+
 def test_ajuste_fija_stock_objetivo(client: TestClient, admin_headers: dict) -> None:
     pid = _crear_producto(client, admin_headers)
     _movimiento(

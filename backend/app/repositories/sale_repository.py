@@ -10,6 +10,11 @@ def get(session: Session, sale_id: int) -> Sale | None:
     return session.get(Sale, sale_id)
 
 
+def get_for_update(session: Session, sale_id: int) -> Sale | None:
+    """Carga la venta con bloqueo de fila (para resolver el pago en el webhook)."""
+    return session.exec(select(Sale).where(Sale.id == sale_id).with_for_update()).first()
+
+
 def add(session: Session, sale: Sale) -> Sale:
     session.add(sale)
     session.flush()
@@ -70,9 +75,11 @@ def totals_by_method(session: Session, cash_session_id: int) -> dict[str, int]:
     return {str(metodo): int(total) for metodo, total in session.exec(stmt).all()}
 
 
-def count_pending(session: Session, cash_session_id: int) -> int:
+def count_unresolved(session: Session, cash_session_id: int) -> int:
+    """Ventas sin resolver: cobro local pendiente o pago Wompi en vuelo. Bloquean
+    el cierre de caja (el arqueo no tendría sentido con pagos en proceso)."""
     stmt = select(func.count()).where(
         Sale.cash_session_id == cash_session_id,
-        Sale.status == SaleStatus.pendiente,
+        Sale.status.in_([SaleStatus.pendiente, SaleStatus.pendiente_pago]),
     )
     return int(session.exec(stmt).one())

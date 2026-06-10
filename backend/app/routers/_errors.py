@@ -15,6 +15,13 @@ from app.services.inventory_errors import (
     ProductNotFound,
     SupplierNotFound,
 )
+from app.services.payment_errors import (
+    InvalidSignature,
+    PaymentError,
+    PaymentNotFound,
+    ProviderUnavailable,
+    SaleNotPayable,
+)
 from app.services.sales_errors import (
     CashSessionAlreadyClosed,
     CashSessionAlreadyOpen,
@@ -49,10 +56,15 @@ _STATUS: dict[type[Exception], int] = {
     ForbiddenCashSession: status.HTTP_403_FORBIDDEN,
     ForbiddenSale: status.HTTP_403_FORBIDDEN,
     EmptySale: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    # Pagos
+    PaymentNotFound: status.HTTP_404_NOT_FOUND,
+    InvalidSignature: status.HTTP_400_BAD_REQUEST,
+    SaleNotPayable: status.HTTP_409_CONFLICT,
+    ProviderUnavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 
-def http_error(exc: InventoryError | SaleError) -> HTTPException:
+def http_error(exc: InventoryError | SaleError | PaymentError) -> HTTPException:
     for typ, code in _STATUS.items():
         if isinstance(exc, typ):
             return HTTPException(status_code=code, detail=str(exc))

@@ -18,6 +18,7 @@ class MovementType(StrEnum):
     salida = "salida"  # -stock (venta/egreso)
     ajuste = "ajuste"  # fija el stock a un valor objetivo (delta firmado)
     merma = "merma"  # -stock (daño/vencimiento/pérdida)
+    reverso_venta = "reverso_venta"  # +stock por venta rechazada (NO recostea)
 
 
 class InventoryMovement(SQLModel, table=True):

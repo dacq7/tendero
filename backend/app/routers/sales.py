@@ -28,11 +28,11 @@ router = APIRouter(prefix="/sales", tags=["sales"])
 _staff = require_role(UserRole.admin, UserRole.cajero)
 
 
-def _to_read(sale: Sale, items: list[SaleItem], invoice: Invoice) -> SaleRead:
+def _to_read(sale: Sale, items: list[SaleItem], invoice: Invoice | None) -> SaleRead:
     return SaleRead(
         **sale.model_dump(),
         items=[SaleItemRead.model_validate(i) for i in items],
-        invoice=InvoiceRead.model_validate(invoice),
+        invoice=InvoiceRead.model_validate(invoice) if invoice else None,
     )
 
 

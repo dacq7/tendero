@@ -12,25 +12,32 @@ import {
   setCantidad,
   toSalePayload,
 } from "@/lib/cart";
+import { type CobroPhase, isWompiMethod } from "@/lib/cobro";
 import { formatCantidad, formatCOP } from "@/lib/money";
-import { PAYMENT_METHODS, type PaymentMethod, type Product, type SaleRead } from "@/lib/types";
-
-type Phase = "vender" | "cobrando" | "ticket";
+import {
+  PAYMENT_METHODS,
+  type PaymentMethod,
+  type PaymentRead,
+  type Product,
+  type SaleRead,
+} from "@/lib/types";
 
 const METODO_LABEL: Record<PaymentMethod, string> = {
   efectivo: "Efectivo",
-  tarjeta: "Tarjeta",
-  nequi: "Nequi",
   transferencia: "Transferencia",
+  tarjeta: "Tarjeta",
+  pse: "PSE",
+  nequi: "Nequi",
 };
 
 export default function VenderPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [phase, setPhase] = useState<Phase>("vender");
+  const [phase, setPhase] = useState<CobroPhase>("vender");
   const [metodo, setMetodo] = useState<PaymentMethod>("efectivo");
   const [lastSale, setLastSale] = useState<SaleRead | null>(null);
+  const [payment, setPayment] = useState<PaymentRead | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cobrando, setCobrando] = useState(false);
 
@@ -65,10 +72,19 @@ export default function VenderPage() {
     setCobrando(true);
     try {
       const sale = await apiPost<SaleRead>("sales", toSalePayload(cart, metodo));
-      setLastSale(sale);
       setCart([]);
       setQuery("");
-      setPhase("ticket");
+      if (!isWompiMethod(metodo)) {
+        // Cobro local (efectivo/transferencia): la venta ya viene pagada.
+        setLastSale(sale);
+        setPhase("ticket");
+        return;
+      }
+      // Cobro Wompi: iniciar el pago; la confirmación llega async (webhook).
+      const pago = await apiPost<PaymentRead>("payments", { sale_id: sale.id });
+      setLastSale(sale);
+      setPayment(pago);
+      setPhase("procesando");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo cobrar. Intenta de nuevo.");
     } finally {
@@ -76,14 +92,35 @@ export default function VenderPage() {
     }
   }
 
+  // Cierra el pago Wompi: carga la venta con su factura (approved) o muestra rechazo.
+  async function resolverPago(aprobado: boolean) {
+    if (!lastSale) return;
+    if (!aprobado) {
+      setPhase("rechazado");
+      return;
+    }
+    const sale = await apiGet<SaleRead>(`sales/${lastSale.id}`);
+    setLastSale(sale);
+    setPhase("ticket");
+  }
+
   function nuevaVenta() {
     setLastSale(null);
+    setPayment(null);
     setError(null);
     setPhase("vender");
   }
 
   if (phase === "ticket" && lastSale) {
     return <Ticket sale={lastSale} onNueva={nuevaVenta} />;
+  }
+
+  if (phase === "procesando" && payment) {
+    return <Procesando payment={payment} onResolved={resolverPago} onCancel={nuevaVenta} />;
+  }
+
+  if (phase === "rechazado") {
+    return <Rechazado onNueva={nuevaVenta} />;
   }
 
   return (
@@ -289,7 +326,7 @@ function Ticket({ sale, onNueva }: { sale: SaleRead; onNueva: () => void }) {
       <div className="overflow-hidden rounded-2xl border-2 border-tinta bg-papel shadow-[6px_6px_0_0_var(--color-achiote)]">
         <div className="bg-tinta px-5 py-4 text-papel">
           <p className="font-display text-xl font-extrabold">Tendero</p>
-          <p className="tabular text-sm text-papel/70">{sale.invoice.numero_completo}</p>
+          <p className="tabular text-sm text-papel/70">{sale.invoice?.numero_completo}</p>
         </div>
         <div className="px-5 py-4">
           <ul className="divide-y divide-niebla">
@@ -313,6 +350,112 @@ function Ticket({ sale, onNueva }: { sale: SaleRead; onNueva: () => void }) {
           </dl>
           <p className="mt-3 text-xs capitalize text-grafito">Pago: {sale.metodo_pago}</p>
         </div>
+      </div>
+      <button
+        onClick={onNueva}
+        className="mt-4 h-12 w-full rounded-xl bg-azulon font-semibold text-papel transition hover:brightness-110"
+      >
+        Nueva venta
+      </button>
+    </div>
+  );
+}
+
+function Procesando({
+  payment,
+  onResolved,
+  onCancel,
+}: {
+  payment: PaymentRead;
+  onResolved: (aprobado: boolean) => void;
+  onCancel: () => void;
+}) {
+  const esMock = payment.provider === "mock";
+  const [simulando, setSimulando] = useState(false);
+
+  // En modo real (Wompi de verdad) la confirmación llega async: hacemos polling.
+  // En modo mock el ciclo se cierra con los botones de simulación de abajo.
+  useEffect(() => {
+    if (esMock) return;
+    let cancel = false;
+    const id = setInterval(async () => {
+      try {
+        const p = await apiGet<PaymentRead>(`payments/${payment.id}`);
+        if (cancel) return;
+        if (p.status === "approved") onResolved(true);
+        else if (p.status !== "pending") onResolved(false);
+      } catch {
+        /* reintenta en el siguiente tick */
+      }
+    }, 2500);
+    return () => {
+      cancel = true;
+      clearInterval(id);
+    };
+  }, [esMock, payment.id, onResolved]);
+
+  async function simular(result: "approved" | "declined") {
+    setSimulando(true);
+    try {
+      await apiPost(`payments/${payment.id}/simulate`, { result });
+      onResolved(result === "approved");
+    } finally {
+      setSimulando(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-sm text-center">
+      <div className="rounded-2xl border border-niebla bg-white p-6">
+        <div
+          className="mx-auto h-10 w-10 rounded-full border-3 border-niebla border-t-azulon motion-safe:animate-spin"
+          role="status"
+          aria-label="Procesando pago"
+        />
+        <p className="mt-4 font-display text-lg font-bold text-tinta">Procesando pago</p>
+        <p className="tabular mt-1 text-2xl font-extrabold text-tinta">
+          {formatCOP(payment.monto_centavos)}
+        </p>
+        <p className="mt-1 text-sm capitalize text-grafito">{payment.metodo}</p>
+
+        {esMock && (
+          <div className="mt-6 rounded-xl border border-dashed border-azulon/40 bg-azulon/5 p-3">
+            <p className="text-xs font-medium text-azulon">Modo demo — simular resultado</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => simular("approved")}
+                disabled={simulando}
+                className="h-10 flex-1 rounded-lg bg-azulon text-sm font-semibold text-papel transition hover:brightness-110 disabled:opacity-60"
+              >
+                Aprobar
+              </button>
+              <button
+                onClick={() => simular("declined")}
+                disabled={simulando}
+                className="h-10 flex-1 rounded-lg border border-achiote/40 text-sm font-semibold text-achiote transition hover:bg-achiote/10 disabled:opacity-60"
+              >
+                Rechazar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <button onClick={onCancel} className="mt-4 text-sm text-grafito underline">
+        Cancelar
+      </button>
+    </div>
+  );
+}
+
+function Rechazado({ onNueva }: { onNueva: () => void }) {
+  return (
+    <div className="mx-auto max-w-sm text-center">
+      <div className="rounded-2xl border-2 border-achiote/40 bg-achiote/5 p-6">
+        <p className="font-display text-xl font-bold text-achiote">Pago rechazado</p>
+        <p className="mt-2 text-sm text-grafito">
+          El pago no se completó. El stock se devolvió al inventario. Intenta con otro
+          método o vuelve a cobrar.
+        </p>
       </div>
       <button
         onClick={onNueva}

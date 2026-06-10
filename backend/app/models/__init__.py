@@ -4,10 +4,12 @@ from app.models.cash_register_session import CashRegisterSession, CashSessionSta
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.invoice import DianStatus, Invoice
 from app.models.invoice_sequence import InvoiceSequence
+from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.product import IVA_RATE_BPS, IvaRate, Product, ProductUnit
 from app.models.sale import PaymentMethod, Sale, SaleItem, SaleStatus
 from app.models.supplier import Supplier
 from app.models.user import User, UserRole
+from app.models.webhook_event import WebhookEvent
 
 __all__ = [
     "IVA_RATE_BPS",
@@ -19,7 +21,10 @@ __all__ = [
     "InvoiceSequence",
     "IvaRate",
     "MovementType",
+    "Payment",
     "PaymentMethod",
+    "PaymentProvider",
+    "PaymentStatus",
     "Product",
     "ProductUnit",
     "Sale",
@@ -28,4 +33,5 @@ __all__ = [
     "Supplier",
     "User",
     "UserRole",
+    "WebhookEvent",
 ]
