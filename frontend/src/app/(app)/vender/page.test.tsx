@@ -209,4 +209,35 @@ describe("VenderPage", () => {
     await user.click(await screen.findByRole("button", { name: "Rechazar" }));
     expect(await screen.findByText("Pago rechazado")).toBeInTheDocument();
   });
+
+  it("muestra la grilla de productos por defecto, sin buscar", async () => {
+    render(<VenderPage />);
+    // Sin escribir nada, la grilla "Productos" ya ofrece toques rápidos.
+    expect(await screen.findByText("Productos")).toBeInTheDocument();
+    expect(screen.getByText("Gaseosa 400ml")).toBeInTheDocument();
+  });
+
+  it("el control de cantidad sube en UNIDADES enteras (bug #1)", async () => {
+    const user = userEvent.setup();
+    render(<VenderPage />);
+    await user.click(await screen.findByText("Gaseosa 400ml")); // 1 unidad
+    const qty = screen.getByTestId("qty-1") as HTMLInputElement;
+    expect(qty.value).toBe("1");
+    await user.click(screen.getByRole("button", { name: "Sumar Gaseosa 400ml" }));
+    await user.click(screen.getByRole("button", { name: "Sumar Gaseosa 400ml" }));
+    expect(qty.value).toBe("3"); // 1 → 2 → 3 unidades (no decimales)
+    // 3 unidades a $1.000 + IVA = $3.570.
+    expect(screen.getByTestId("cart-total")).toHaveTextContent("3.570");
+  });
+
+  it("el carrito sobrevive a desmontar y volver (bug #2)", async () => {
+    const user = userEvent.setup();
+    const vista = render(<VenderPage />);
+    await user.click(await screen.findByText("Gaseosa 400ml"));
+    expect(screen.getByTestId("cart-total")).toHaveTextContent("1.190");
+    vista.unmount(); // navegar a otra sección
+    render(<VenderPage />); // volver a Vender
+    // El carrito persiste (sessionStorage): el total sigue ahí.
+    expect(await screen.findByTestId("cart-total")).toHaveTextContent("1.190");
+  });
 });

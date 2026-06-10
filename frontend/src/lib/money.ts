@@ -4,6 +4,10 @@
 
 export type IvaRate = "exento" | "tarifa_0" | "tarifa_5" | "tarifa_19";
 
+// Milésimas por unidad: 1000 = 1 unidad / 1 kg. El control de cantidad de la UI
+// suma/resta en UNIDADES (este paso), no en milésimas.
+export const MILESIMAS_POR_UNIDAD = 1000;
+
 export const IVA_BPS: Record<IvaRate, number> = {
   exento: 0,
   tarifa_0: 0,

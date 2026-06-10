@@ -3,17 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError, apiGet, apiPost } from "@/lib/api";
-import {
-  addToCart,
-  type CartLine,
-  cartTotals,
-  lineTotals,
-  removeFromCart,
-  setCantidad,
-  toSalePayload,
-} from "@/lib/cart";
+import { cartTotals, lineTotals, toSalePayload } from "@/lib/cart";
 import { type CobroPhase, isWompiMethod } from "@/lib/cobro";
-import { formatCantidad, formatCOP } from "@/lib/money";
+import { formatCantidad, formatCOP, MILESIMAS_POR_UNIDAD } from "@/lib/money";
+import { useCart } from "@/lib/useCart";
 import {
   PAYMENT_METHODS,
   type PaymentMethod,
@@ -31,9 +24,10 @@ const METODO_LABEL: Record<PaymentMethod, string> = {
 };
 
 export default function VenderPage() {
+  const { cart, add, cambiarCantidad, quitar, vaciar } = useCart();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [grid, setGrid] = useState<Product[]>([]);
   const [phase, setPhase] = useState<CobroPhase>("vender");
   const [metodo, setMetodo] = useState<PaymentMethod>("efectivo");
   const [lastSale, setLastSale] = useState<SaleRead | null>(null);
@@ -45,34 +39,41 @@ export default function VenderPage() {
 
   const term = query.trim();
 
+  // Grilla de productos por defecto (toque rápido sin buscar): se carga al montar.
   useEffect(() => {
-    if (term.length < 1) return;
     let cancel = false;
-    apiGet<Product[]>(`products?q=${encodeURIComponent(term)}&limit=12`)
-      .then((data) => {
-        if (!cancel) setResults(data);
-      })
-      .catch(() => {
-        if (!cancel) setResults([]);
-      });
+    apiGet<Product[]>("products?limit=24")
+      .then((data) => !cancel && setGrid(data))
+      .catch(() => !cancel && setGrid([]));
     return () => {
       cancel = true;
     };
+  }, []);
+
+  // Búsqueda instantánea (mientras se escribe), con un pequeño debounce.
+  useEffect(() => {
+    if (term.length < 1) return;
+    let cancel = false;
+    const t = setTimeout(() => {
+      apiGet<Product[]>(`products?q=${encodeURIComponent(term)}&limit=24`)
+        .then((data) => !cancel && setResults(data))
+        .catch(() => !cancel && setResults([]));
+    }, 180);
+    return () => {
+      cancel = true;
+      clearTimeout(t);
+    };
   }, [term]);
 
-  // Solo mostramos resultados mientras hay término de búsqueda.
-  const visibles = term.length >= 1 ? results : [];
-
-  function add(product: Product) {
-    setCart((c) => addToCart(c, product));
-  }
+  // Si hay término de búsqueda, mostramos resultados; si no, la grilla por defecto.
+  const visibles = term.length >= 1 ? results : grid;
 
   async function confirmarCobro() {
     setError(null);
     setCobrando(true);
     try {
       const sale = await apiPost<SaleRead>("sales", toSalePayload(cart, metodo));
-      setCart([]);
+      vaciar();
       setQuery("");
       if (!isWompiMethod(metodo)) {
         // Cobro local (efectivo/transferencia): la venta ya viene pagada.
@@ -138,7 +139,10 @@ export default function VenderPage() {
           placeholder="Nombre, SKU o código de barras"
           className="mt-1.5 h-14 w-full rounded-xl border border-niebla bg-white px-4 text-lg text-tinta outline-none transition focus:border-azulon focus:ring-2 focus:ring-azulon/30"
         />
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-grafito">
+          {term.length >= 1 ? "Resultados" : "Productos"}
+        </p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((p) => (
             <button
               key={p.id}
@@ -177,25 +181,55 @@ export default function VenderPage() {
                       {formatCOP(line.product.precio_venta_centavos)} c/u
                     </p>
                   </div>
-                  <input
-                    aria-label={`Cantidad de ${line.product.nombre}`}
-                    type="number"
-                    min={0}
-                    step={0.001}
-                    value={line.cantidad_milesimas / 1000}
-                    onChange={(e) =>
-                      setCart((c) =>
-                        setCantidad(c, line.product.id, Math.round(Number(e.target.value) * 1000)),
-                      )
-                    }
-                    className="tabular h-9 w-16 rounded-md border border-niebla px-2 text-right text-sm"
-                  />
+                  <div className="flex items-center gap-1">
+                    <button
+                      aria-label={`Restar ${line.product.nombre}`}
+                      onClick={() =>
+                        cambiarCantidad(
+                          line.product.id,
+                          line.cantidad_milesimas - MILESIMAS_POR_UNIDAD,
+                        )
+                      }
+                      className="h-9 w-9 rounded-md border border-niebla text-lg text-tinta transition hover:bg-niebla/60"
+                    >
+                      −
+                    </button>
+                    <input
+                      aria-label={`Cantidad de ${line.product.nombre}`}
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={line.cantidad_milesimas / MILESIMAS_POR_UNIDAD}
+                      onChange={(e) => {
+                        const unidades = Number(e.target.value);
+                        if (!Number.isFinite(unidades)) return; // ignora entradas inválidas
+                        cambiarCantidad(
+                          line.product.id,
+                          Math.round(unidades * MILESIMAS_POR_UNIDAD),
+                        );
+                      }}
+                      data-testid={`qty-${line.product.id}`}
+                      className="tabular h-9 w-14 rounded-md border border-niebla px-1 text-center text-sm"
+                    />
+                    <button
+                      aria-label={`Sumar ${line.product.nombre}`}
+                      onClick={() =>
+                        cambiarCantidad(
+                          line.product.id,
+                          line.cantidad_milesimas + MILESIMAS_POR_UNIDAD,
+                        )
+                      }
+                      className="h-9 w-9 rounded-md border border-niebla text-lg text-tinta transition hover:bg-niebla/60"
+                    >
+                      +
+                    </button>
+                  </div>
                   <span className="tabular w-20 text-right text-sm text-tinta">
                     {formatCOP(lt.total_linea_centavos)}
                   </span>
                   <button
                     aria-label={`Quitar ${line.product.nombre}`}
-                    onClick={() => setCart((c) => removeFromCart(c, line.product.id))}
+                    onClick={() => quitar(line.product.id)}
                     className="text-grafito transition hover:text-achiote"
                   >
                     ✕

@@ -12,4 +12,6 @@ globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
 // Desmonta el árbol de React tras cada test para que no se filtre estado/DOM.
 afterEach(() => {
   cleanup();
+  // El carrito vive en sessionStorage: limpiarlo entre tests evita filtraciones.
+  window.sessionStorage.clear();
 });

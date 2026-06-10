@@ -104,6 +104,10 @@ export interface CashSession {
   diferencia_centavos: number | null;
 }
 
+export interface CashSessionDetail extends CashSession {
+  totales_por_metodo: Record<string, number>; // método → total_centavos de pagadas
+}
+
 // ── Analítica ──
 export type Granularidad = "dia" | "semana" | "mes" | "ano";
 

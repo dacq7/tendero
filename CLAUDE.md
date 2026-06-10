@@ -8,8 +8,9 @@ suposición tuya, **gana esto** — son decisiones ya tomadas y verificadas en F
 Fases 0-5 COMPLETAS (todas las de negocio). Fase 0: cimientos + tests base/docs
 (0.7). Fase 1: Inventario. Fase 2: Ventas + Caja + Factura interna (con frontend,
 sesión real). Fase 3: Pagos Wompi sandbox (mock de demo). Fase 4: Facturación DIAN
-(mock → PT). Fase 5: Analítica (seed de demo + agregaciones + dashboard). Queda la
-Fase 6 (pulido, e2e Playwright, hardening de seguridad, deploy) — ver Pendientes.
+(mock → PT). Fase 5: Analítica (seed de demo + agregaciones + dashboard). Fase 6 parte A
+(corrección de bugs de Vender/Caja) COMPLETA. Queda la Fase 6 parte B (e2e
+Playwright, hardening de seguridad, deploy) — ver Pendientes.
 
 ## Tests
 - **Backend**: `cd backend && source .venv/bin/activate && python -m pytest`.
@@ -78,6 +79,22 @@ Fase 6 (pulido, e2e Playwright, hardening de seguridad, deploy) — ver Pendient
   Cierre de caja bloquea si hay ventas `pendiente_pago` en vuelo.
 - Frontend: Vender refleja el estado async (cobrar → **procesando** → ticket/rechazado),
   con polling en real y botones de simulación en mock. Lógica pura en `lib/cobro.ts`.
+- Pendiente hardening (Fase 6B): `PaymentRead.wompi_public_key` viaja al cliente pero
+  el frontend no la usa (el Widget real no está integrado); quitarla del DTO o
+  documentar su uso cuando se integre el Widget.
+
+## Fase 6 parte A — Bugs de Vender/Caja (corregidos)
+- **Cantidad en UNIDADES**: el control del carrito suma/resta con `MILESIMAS_POR_UNIDAD`
+  (1000); el input usa `step=1` y guarda contra entradas no finitas. (Causa: antes
+  el input tenía `step=0.001` y operaba en milésimas.)
+- **Carrito persistente**: `lib/useCart.ts` (sessionStorage) sobrevive a la navegación
+  y a recargas; se limpia con `vaciar()` tras cobrar. El payload sigue sin precios.
+- **Caja muestra el turno**: la pantalla consulta `cash/sessions/{id}` (totales por
+  método) + `sales?cash_session_id=` (nº ventas) y calcula total del turno y esperado
+  en efectivo, con botón Refrescar. (Era bug de visualización, no de datos.)
+- **Vender más rápida**: grilla de productos por defecto (toque sin buscar) +
+  búsqueda instantánea con debounce. `pesosToCentavos` (caja) redondea a peso entero
+  antes de ×100 (sin float).
 
 ## Fase 4 — Facturación electrónica DIAN (mock → PT)
 - **Mock es el camino de demo** (sin llaves): `MockFiscalProvider` genera un CUFE
