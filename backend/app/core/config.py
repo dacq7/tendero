@@ -20,6 +20,8 @@ _DEMO_SECRETS = frozenset(
         "cufe_demo_secret",
         "cambia-esto-por-un-secreto-de-32-bytes",
         "pub_test_demo",
+        # JWT de la suite e2e (frontend/e2e/env.ts): de prueba, jamás de producción.
+        "e2e_jwt_secret_no_real_solo_para_pruebas",
     }
 )
 

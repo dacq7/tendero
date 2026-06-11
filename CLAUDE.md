@@ -24,7 +24,11 @@ B.1 (HARDENING DE SEGURIDAD) COMPLETA: secretos REQUERIDOS sin defaults en códi
 de cajero), anti-replay del webhook por timestamp (ventana 5 min), cabeceras de
 seguridad + handler de errores que oculta trazas, rate limiting por IP en login y
 webhook, y deuda de tests saldada (analítica pro por HTTP + concurrencia REAL de
-`apply_movement`). Queda la Fase 6 parte B.2 (e2e Playwright, deploy) — ver Pendientes.
+`apply_movement`). Fase 6 parte B.2 (TESTS E2E con Playwright) COMPLETA: 17 e2e en
+navegador real contra el stack completo (login/roles, venta efectivo→ticket, Wompi
+mock aprobado/rechazado, caja+arqueo, emisión DIAN+CUFE, inventario CRUD/kardex/stock
+no editable, dashboard de analítica), con base AISLADA `tendero_e2e` y puertos
+dedicados (8021/3002). Queda la Fase 6 parte B.3 (deploy) — ver Pendientes.
 NOTA: la analítica es de NEGOCIO, no contabilidad formal; "utilidad" = utilidad
 bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
 
@@ -34,6 +38,15 @@ bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
   `alembic upgrade head`). URL desde `TEST_DATABASE_URL` o derivada de `DATABASE_URL`
   con sufijo `_test` (obligatorio). Patrón: `backend/tests/conftest.py`.
 - **Frontend**: `cd frontend && npm test` (Vitest + Testing Library, jsdom).
+- **E2E (Playwright)**: `cd frontend && npm run test:e2e`. Navegador real contra el
+  stack completo. Base AISLADA `tendero_e2e` (sufijo `_e2e` obligatorio; el seed la
+  protege con guarda) y PUERTOS dedicados (backend **8021**, frontend **3002**) para
+  no chocar con los servidores de desarrollo. Playwright levanta ambos servidores él
+  mismo (`webServer`) con la env e2e (secretos de prueba del mock; `APP_ENV=test`) y
+  siembra datos deterministas en `globalSetup` (`backend/app/seed_e2e.py`: admin +
+  cajero `@e2e.co`, 4 productos, 1 venta histórica con factura POS-000001). Los tests
+  viven en `frontend/e2e/*.e2e.ts` (Vitest los ignora); login real por la UI con
+  `storageState` por rol. Serie serial (`workers:1`) por el invariante de caja única.
 
 ## Fase 1 — Inventario
 - Modelos: `Supplier`, `Product`, `InventoryMovement` (kardex). Enums `IvaRate`

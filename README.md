@@ -124,6 +124,30 @@ npm test                    # una pasada (CI)
 npm run test:watch          # modo watch
 ```
 
+### End-to-end (Playwright)
+Recorren los flujos críticos en un navegador real contra el **stack completo**
+(Next BFF → proxy → FastAPI → Postgres). Cubren: login y guard de roles, venta en
+efectivo → ticket, pago Wompi mock (aprobado/rechazado), caja con arqueo, emisión
+DIAN mock y CUFE, inventario (crear/entrada/merma/kardex, stock no editable) y el
+dashboard de analítica.
+
+Aislamiento total: usan su **propia base** `tendero_e2e` (nunca la de desarrollo ni
+la unit `tendero_test`) y **puertos dedicados** (backend 8021, frontend 3002), así no
+chocan con los servidores de desarrollo (8020/3001). Playwright levanta backend y
+frontend automáticamente (`webServer`) y siembra datos deterministas
+(`backend/app/seed_e2e.py`) en un `globalSetup` antes de correr.
+
+```bash
+cd frontend
+docker compose up -d         # Postgres arriba (desde la raíz del repo)
+npx playwright install chromium   # solo la primera vez
+npm run test:e2e             # corre toda la suite (levanta los servidores solo)
+npm run test:e2e:ui          # modo interactivo (UI)
+```
+No hace falta tener los servidores de desarrollo encendidos: Playwright arranca los
+suyos con la env e2e. Usuarios sembrados: `admin@e2e.co` / `cajero@e2e.co` (clave
+`E2e1234!`).
+
 ## Reglas
 - Secretos solo en `.env` / `.env.local` (nunca en el repo). Ver `.env.example`.
   Son **requeridos**: sin ellos el backend no arranca (no hay defaults en código).

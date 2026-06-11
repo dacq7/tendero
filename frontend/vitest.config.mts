@@ -11,5 +11,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    // Los e2e de Playwright (e2e/**/*.e2e.ts) NO los corre Vitest (frontera explícita).
+    exclude: ["e2e/**", "node_modules/**"],
   },
 });
