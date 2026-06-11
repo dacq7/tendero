@@ -96,6 +96,62 @@ def test_produccion_acepta_secretos_reales(monkeypatch: pytest.MonkeyPatch) -> N
     assert s.app_env == "production"
 
 
+def _settings(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> Settings:
+    """Construye Settings aislado del `.env` real con el entorno mínimo válido."""
+    _clear(monkeypatch)
+    env = {**VALID_ENV, **{k.upper(): v for k, v in overrides.items()}}
+    return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})
+
+
+# ---------- CORS multi-origen (deploy Fase 6 B.3) ----------
+
+
+def test_frontend_origins_un_solo_origen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El default local sigue siendo un único origen (no rompe desarrollo)."""
+    s = _settings(monkeypatch, frontend_origin="http://localhost:3001")
+    assert s.frontend_origins == ["http://localhost:3001"]
+
+
+def test_frontend_origins_multiples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Varios orígenes separados por coma → lista saneada (prod + previews)."""
+    s = _settings(
+        monkeypatch,
+        frontend_origin="https://tendero.vercel.app, https://tendero-pr-1.vercel.app",
+    )
+    assert s.frontend_origins == [
+        "https://tendero.vercel.app",
+        "https://tendero-pr-1.vercel.app",
+    ]
+
+
+def test_frontend_origins_ignora_vacios(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Comas finales o dobles no producen orígenes vacíos."""
+    s = _settings(monkeypatch, frontend_origin="https://a.vercel.app,, ,https://b.vercel.app,")
+    assert s.frontend_origins == ["https://a.vercel.app", "https://b.vercel.app"]
+
+
+# ---------- Normalización del driver de Postgres (deploy Fase 6 B.3) ----------
+
+
+def test_database_url_normaliza_driver_postgresql(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`postgresql://` (lo que entrega Railway) → `postgresql+psycopg://`."""
+    s = _settings(monkeypatch, database_url="postgresql://u:p@host:5432/db")
+    assert s.database_url == "postgresql+psycopg://u:p@host:5432/db"
+
+
+def test_database_url_normaliza_driver_postgres_legado(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El esquema legado `postgres://` también se normaliza."""
+    s = _settings(monkeypatch, database_url="postgres://u:p@host:5432/db")
+    assert s.database_url == "postgresql+psycopg://u:p@host:5432/db"
+
+
+def test_database_url_respeta_driver_explicito(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Una URL que ya trae driver no se toca (no duplica el prefijo)."""
+    url = "postgresql+psycopg://u:p@host:5432/db"
+    s = _settings(monkeypatch, database_url=url)
+    assert s.database_url == url
+
+
 def test_codigo_no_asigna_secretos_como_default() -> None:
     """Defensa de regresión: ningún secreto debe usarse como valor por DEFAULT.
 

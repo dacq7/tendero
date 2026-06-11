@@ -33,10 +33,11 @@ app = FastAPI(title="Tendero API", version="0.0.0")
 # producción. Se añade antes que CORS para que también cubra las respuestas de CORS.
 app.add_middleware(SecurityHeadersMiddleware, is_production=_IS_PRODUCTION)
 
-# CORS acotado solo al origen del frontend (regla del brief, sección 10).
+# CORS acotado a los orígenes del frontend (regla del brief, sección 10).
+# `frontend_origins` admite varios (prod + previews de Vercel), separados por coma.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin],
+    allow_origins=settings.frontend_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

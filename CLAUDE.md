@@ -28,7 +28,13 @@ webhook, y deuda de tests saldada (analítica pro por HTTP + concurrencia REAL d
 navegador real contra el stack completo (login/roles, venta efectivo→ticket, Wompi
 mock aprobado/rechazado, caja+arqueo, emisión DIAN+CUFE, inventario CRUD/kardex/stock
 no editable, dashboard de analítica), con base AISLADA `tendero_e2e` y puertos
-dedicados (8021/3002). Queda la Fase 6 parte B.3 (deploy) — ver Pendientes.
+dedicados (8021/3002). Fase 6 parte B.3 paso 1 (PREP DE DEPLOY) COMPLETA: backend
+listo para Railway (`start.sh` migra+sirve leyendo `$PORT`/host 0.0.0.0, `railway.json`
+con Nixpacks, `.python-version`), CORS multi-origen (`FRONTEND_ORIGIN` admite lista
+por comas → `settings.frontend_origins`), normalización del driver de `DATABASE_URL`
+(`postgresql://`→`postgresql+psycopg://`), y `DEPLOY.md` (guía Railway+Vercel). El
+frontend ya estaba listo (BFF lee `BACKEND_URL` server-only; cookies `secure` por
+`NODE_ENV`). Queda el deploy en sí (lo hace el usuario en los paneles) — ver Pendientes.
 NOTA: la analítica es de NEGOCIO, no contabilidad formal; "utilidad" = utilidad
 bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
 
@@ -195,6 +201,10 @@ Estos puertos se eligieron por estar libres entre varios proyectos coexistentes.
    (por defecto: admin@tendero.co / Admin1234! — SOLO desarrollo local)
 5. (Opcional) Datos de demo para la analítica: `python -m app.seed_demo`
    (~1400 ventas en 9 meses; idempotente; NO correr en producción)
+
+El arranque local NO cambia con la prep de deploy: `start.sh`/`railway.json`/
+`.python-version` solo los usa Railway. **Producción**: ver `DEPLOY.md` (Railway +
+Vercel). En prod el backend arranca con `sh start.sh` (migra + sirve en `$PORT`).
 
 ## Invariantes de arquitectura (inmutables)
 - **Capas backend obligatorias**: router → service → repository → model/schema.
