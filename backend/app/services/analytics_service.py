@@ -203,12 +203,13 @@ def by_cashier(session: Session, desde: date, hasta: date) -> list[ByCashierRow]
     desde_dt, hasta_dt = _bounds(desde, hasta)
     return [
         ByCashierRow(
-            user_id=uid,
             nombre=nombre,
             ventas_centavos=int(ventas),
             n_transacciones=int(n),
             ticket_promedio_centavos=round_half_up(int(ventas), int(n)) if n else 0,
         )
+        # `uid` se descarta: el DTO de salida no expone identificadores internos
+        # (minimización; el nombre del cajero basta para la analítica admin).
         for uid, nombre, ventas, n in repo.by_cashier(session, desde_dt, hasta_dt)
     ]
 

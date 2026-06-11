@@ -47,6 +47,16 @@ Genera un `JWT_SECRET` real en `backend/.env`:
 openssl rand -hex 32
 ```
 
+> **Secretos requeridos (hardening Fase 6 B.1).** El backend ya **no** trae valores
+> por defecto para los secretos: si faltan en `backend/.env`, arranca con un
+> `ValidationError` claro en vez de usar credenciales conocidas. Asegúrate de definir
+> en `backend/.env` al menos: `DATABASE_URL`, `JWT_SECRET`, `WOMPI_INTEGRITY_SECRET`,
+> `WOMPI_EVENTS_SECRET`, `FISCAL_CUFE_SECRET` (los tres últimos pueden ser los valores
+> de prueba del modo `mock`). En `production`, pon `APP_ENV=production` (activa HSTS) y
+> reemplaza TODOS los secretos por valores reales. La suite de tests provee los
+> secretos de prueba del mock como fallback (`backend/tests/conftest.py`), así que
+> solo necesita `DATABASE_URL` y `JWT_SECRET` en `backend/.env`.
+
 > Los `.env` reales **nunca** se suben al repo (ya están en `.gitignore`).
 
 ### 2. Base de datos (Postgres en Docker)
@@ -116,8 +126,19 @@ npm run test:watch          # modo watch
 
 ## Reglas
 - Secretos solo en `.env` / `.env.local` (nunca en el repo). Ver `.env.example`.
+  Son **requeridos**: sin ellos el backend no arranca (no hay defaults en código).
 - Dinero en enteros (centavos COP), nunca float.
 - Migraciones siempre con Alembic.
 - Commits convencionales (`feat:`, `fix:`, `chore:`…). Nada a "hecho" sin su test.
+
+## Endurecimiento de seguridad (Fase 6 B.1)
+- **Secretos requeridos**: arranque ruidoso si falta cualquiera (no credenciales por defecto).
+- **Cabeceras de seguridad** en toda respuesta (`nosniff`, anti-frame, `Referrer-Policy`,
+  COOP; HSTS solo con `APP_ENV=production`). CSP la maneja el frontend.
+- **Rate limiting** por IP en `/auth/login` (10/5 min) y `/webhooks/wompi` (60/min).
+- **Anti-replay del webhook**: además de la idempotencia por evento, se rechazan eventos
+  fuera de una ventana de frescura de 5 min (con tolerancia de reloj).
+- **Errores no controlados** devuelven un cuerpo genérico; la traza solo va a los logs
+  del servidor, nunca al cliente. CORS acotado al origen del frontend.
 
 Para más detalle de arquitectura e invariantes, ver `CLAUDE.md` y `brief-tendero-pro.md`.

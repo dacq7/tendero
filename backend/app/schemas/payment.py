@@ -1,5 +1,9 @@
-"""DTOs de pago. Dinero en centavos. NUNCA exponen secretos ni la llave privada;
-sí la llave PÚBLICA (para el Widget de Wompi en el cliente)."""
+"""DTOs de pago. Dinero en centavos. NUNCA exponen secretos ni la llave privada.
+
+Endurecimiento Fase 6 B.1: tampoco viaja la llave PÚBLICA de Wompi. El Widget real
+no está integrado y el cliente no la usa, así que se omite del DTO (minimización de
+superficie). Cuando se integre el Widget, el frontend la pedirá a un endpoint propio.
+"""
 
 from datetime import datetime
 from typing import Literal
@@ -28,8 +32,6 @@ class PaymentRead(BaseModel):
     wompi_transaction_id: str | None
     created_at: datetime
     updated_at: datetime
-    # Llave pública para el Widget (no es secreto). La privada nunca sale del server.
-    wompi_public_key: str | None = None
 
 
 class SimulateRequest(BaseModel):

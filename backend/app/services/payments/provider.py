@@ -5,6 +5,7 @@ de evento Wompi), así que vive aquí y ambas implementaciones lo reutilizan.
 """
 
 import hmac
+import time
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -37,6 +38,7 @@ class WebhookEnvelope:
     status: PaymentStatus
     referencia: str
     monto_centavos: int
+    timestamp: int  # epoch s del evento (firmado); usado para rechazar replays viejos
 
 
 class WompiProvider(Protocol):
@@ -65,12 +67,17 @@ def build_signed_event(
     referencia: str,
     monto_centavos: int,
     events_secret: str,
-    timestamp: int | str = "1700000000",
+    timestamp: int | str | None = None,
 ) -> dict:
     """Construye un evento Wompi con checksum VÁLIDO (para mock/simulate y tests).
 
     Pasa por el mismo `verify_and_parse_event`, así que ejercita la firma real.
+    Por defecto usa el timestamp ACTUAL (epoch s): así los eventos del mock/simulate
+    pasan la verificación de frescura del webhook. Los tests pueden inyectar un
+    timestamp viejo/futuro explícito para ejercitar la protección de replay.
     """
+    if timestamp is None:
+        timestamp = int(time.time())
     tx = {
         "id": transaction_id,
         "status": status,
@@ -120,6 +127,14 @@ def verify_and_parse_event(payload: dict, *, events_secret: str) -> WebhookEnvel
     if status is None:
         raise InvalidSignature(generico)
 
+    # El timestamp ya está cubierto por el checksum (no es manipulable sin romper la
+    # firma); aquí solo se normaliza a int para la verificación de frescura aguas
+    # abajo. Si no es numérico, se trata como firma inválida.
+    try:
+        ts = int(timestamp)
+    except (TypeError, ValueError) as exc:
+        raise InvalidSignature(generico) from exc
+
     transaction_id = str(tx["id"])
     return WebhookEnvelope(
         event_id=f"{transaction_id}:{status.value}",
@@ -127,4 +142,5 @@ def verify_and_parse_event(payload: dict, *, events_secret: str) -> WebhookEnvel
         status=status,
         referencia=str(tx["reference"]),
         monto_centavos=int(tx["amount_in_cents"]),
+        timestamp=ts,
     )

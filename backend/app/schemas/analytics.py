@@ -68,7 +68,7 @@ class ByMethodRow(BaseModel):
 
 
 class ByCashierRow(BaseModel):
-    user_id: int
+    # Sin `user_id`: el DTO de salida no expone identificadores internos (Fase 6 B.1).
     nombre: str
     ventas_centavos: int
     n_transacciones: int

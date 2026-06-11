@@ -243,6 +243,27 @@ def test_top_products_y_by_method(
     assert metodos == {"tarjeta": 1, "efectivo": 1}
 
 
+def test_by_cashier_no_expone_user_id(
+    client: TestClient, admin_user: User, admin_headers: dict, session: Session
+) -> None:
+    """Endurecimiento Fase 6 B.1: by-cashier reporta el nombre, no el id interno."""
+    p = _producto(session, sku="CSH", venta=100000, costo=50000, iva=IvaRate.exento)
+    caja = _caja(session, admin_user.id, datetime(2026, 3, 15, 10))
+    _venta(
+        session,
+        user_id=admin_user.id,
+        cash_id=caja.id,
+        items=[(p, 1000)],
+        metodo=PaymentMethod.efectivo,
+        dt=datetime(2026, 3, 15, 10),
+    )
+    filas = client.get(
+        "/analytics/by-cashier?desde=2026-03-15&hasta=2026-03-15", headers=admin_headers
+    ).json()
+    assert filas and all("user_id" not in fila for fila in filas)
+    assert filas[0]["nombre"] == admin_user.full_name
+
+
 def test_rango_invalido_da_422(client: TestClient, admin_headers: dict) -> None:
     res = client.get("/analytics/summary?desde=2026-03-31&hasta=2026-03-01", headers=admin_headers)
     assert res.status_code == 422

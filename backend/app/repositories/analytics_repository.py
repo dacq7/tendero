@@ -24,6 +24,7 @@ def _purchase_expr():
         * InventoryMovement.cantidad_milesimas
     )
 
+
 # Unidad de date_trunc por granularidad.
 TRUNC = {"dia": "day", "semana": "week", "mes": "month", "ano": "year"}
 

@@ -9,8 +9,21 @@ Estrategia (decidida en sub-fase 0.7):
 - Se crea/limpia la base una vez por sesión de test. Guarda de seguridad:
   jamás se corre contra la base de desarrollo.
 """
+# ruff: noqa: E402  (el bootstrap de entorno DEBE correr antes de importar settings)
 
 import os
+
+# Endurecimiento Fase 6 B.1: `app.core.config.Settings` ya no tiene defaults para los
+# secretos. `database_url`/`jwt_secret` se leen del `.env` real (deben existir). Los
+# secretos de FIRMA del modo `mock` son valores de PRUEBA, públicos por naturaleza:
+# se proveen aquí como fallback SOLO-TEST (no en el código de producción) para que la
+# suite sea autocontenida aunque el `.env` local no los liste. `setdefault` respeta
+# cualquier valor real ya presente en el entorno.
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("WOMPI_INTEGRITY_SECRET", "integrity_test_secret")
+os.environ.setdefault("WOMPI_EVENTS_SECRET", "events_test_secret")
+os.environ.setdefault("FISCAL_CUFE_SECRET", "cufe_demo_secret")
+
 from pathlib import Path
 
 import pytest
@@ -113,6 +126,17 @@ def _engine() -> Engine:
     with admin.connect() as conn:
         _drop_database(conn, dbname)
     admin.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Los limitadores son singletons en memoria: limpiar su estado entre tests
+    evita que los intentos de un caso cuenten contra otro (falsos 429)."""
+    from app.core.rate_limit import login_limiter, webhook_limiter
+
+    login_limiter.reset()
+    webhook_limiter.reset()
+    yield
 
 
 @pytest.fixture(autouse=True)

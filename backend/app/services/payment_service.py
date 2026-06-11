@@ -28,11 +28,18 @@ from app.services.payment_errors import (
     InvalidSignature,
     PaymentNotFound,
     SaleNotPayable,
+    WebhookReplay,
 )
 from app.services.payments.factory import get_wompi_provider
 from app.services.payments.provider import WebhookEnvelope
 
 _MONEDA = "COP"
+
+# Ventana de frescura del webhook (anti-replay). Un evento firmado pero más viejo
+# que esto se rechaza aunque su firma sea válida; la idempotencia por event_id es la
+# segunda capa. Se tolera un pequeño desfase de reloj hacia el futuro.
+_WEBHOOK_MAX_AGE_S = 300  # 5 min
+_WEBHOOK_FUTURE_SKEW_S = 60  # 1 min
 
 
 def _reference_for(sale_id: int) -> str:
@@ -106,6 +113,14 @@ def process_webhook(session: Session, payload: dict) -> None:
     firma no valida (el router lo traduce a 400)."""
     provider = get_wompi_provider()
     envelope = provider.verify_and_parse_event(payload)  # valida firma
+
+    # Anti-replay: un evento con firma válida pero fuera de la ventana de frescura se
+    # rechaza (un atacante podría recapturar y reenviar un evento legítimo antiguo).
+    # Va ANTES de registrar el evento para no consumir la clave de idempotencia.
+    now = int(datetime.now(UTC).timestamp())
+    age = now - envelope.timestamp
+    if age > _WEBHOOK_MAX_AGE_S or age < -_WEBHOOK_FUTURE_SKEW_S:
+        raise WebhookReplay("Evento fuera de la ventana de frescura")
 
     # Candado de idempotencia: registrar el evento ANTES de aplicar efectos. Si ya
     # existe (UNIQUE), es un reproceso → no-op.

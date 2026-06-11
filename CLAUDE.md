@@ -18,8 +18,13 @@ veces/año + días de inventario + capital inmovilizado + recompra), proveedores
 documento ENMASCARADO por Habeas Data), tendencias (MoM/YoY/ticket por hora-día/
 proyección). Dashboard reorganizado en pestañas con fetch lazy; CSV por sección
 saneado contra inyección de fórmulas; seed de demo ampliado a 18 meses con
-proveedores, clientes recurrentes y reposición proporcional al consumo. Queda la
-Fase 6 parte B (e2e Playwright, hardening de seguridad, deploy) — ver Pendientes.
+proveedores, clientes recurrentes y reposición proporcional al consumo. Fase 6 parte
+B.1 (HARDENING DE SEGURIDAD) COMPLETA: secretos REQUERIDOS sin defaults en código
+(arranque ruidoso si faltan), DTOs minimizados (sin `wompi_public_key` ni `user_id`
+de cajero), anti-replay del webhook por timestamp (ventana 5 min), cabeceras de
+seguridad + handler de errores que oculta trazas, rate limiting por IP en login y
+webhook, y deuda de tests saldada (analítica pro por HTTP + concurrencia REAL de
+`apply_movement`). Queda la Fase 6 parte B.2 (e2e Playwright, deploy) — ver Pendientes.
 NOTA: la analítica es de NEGOCIO, no contabilidad formal; "utilidad" = utilidad
 bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
 
@@ -90,9 +95,9 @@ bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
   Cierre de caja bloquea si hay ventas `pendiente_pago` en vuelo.
 - Frontend: Vender refleja el estado async (cobrar → **procesando** → ticket/rechazado),
   con polling en real y botones de simulación en mock. Lógica pura en `lib/cobro.ts`.
-- Pendiente hardening (Fase 6B): `PaymentRead.wompi_public_key` viaja al cliente pero
-  el frontend no la usa (el Widget real no está integrado); quitarla del DTO o
-  documentar su uso cuando se integre el Widget.
+- ~~Pendiente hardening: `PaymentRead.wompi_public_key`~~: **RESUELTO en Fase 6 B.1**
+  (quitada del DTO; el Widget real no está integrado). Además el webhook ahora rechaza
+  replays por timestamp (ver "Fase 6 parte B.1").
 
 ## Fase 6 parte A — Bugs de Vender/Caja (corregidos)
 - **Cantidad en UNIDADES**: el control del carrito suma/resta con `MILESIMAS_POR_UNIDAD`
@@ -245,9 +250,12 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
   (queda huérfano en un rollback). Caso de borde; arreglo de una línea si surge.
 - `npm audit` reporta 2 vulnerabilidades moderate (dev). Revisar en Fase 6
   (hardening). NUNCA correr `npm audit fix --force` a ciegas.
-- Hardening Fase 6: `app/core/config.py` tiene defaults hardcodeados para
-  `database_url` y `jwt_secret`. Arrancar sin `.env` usa credenciales conocidas en
-  silencio. Hacerlos campos requeridos (sin default) para que falle ruidosamente.
+- ~~Hardening Fase 6: `config.py` tiene defaults hardcodeados para `database_url`/
+  `jwt_secret`~~: **RESUELTO en Fase 6 B.1.** `database_url`, `jwt_secret`,
+  `wompi_integrity_secret`, `wompi_events_secret` y `fiscal_cufe_secret` son campos
+  REQUERIDOS (sin default en código): arrancar sin ellos lanza `ValidationError`. Los
+  valores de prueba del mock viven en `backend/.env`/`.env.example`; la suite los
+  provee como fallback solo-test en `conftest.py`. Test: `tests/test_config.py`.
 - ~~Login solo en memoria~~ y ~~UI de Inventario diferida~~: **RESUELTOS en Fase 2**
   (sesión real httpOnly BFF + pantallas de inventario).
 - ~~UI de inventario solo-lectura~~, ~~UI de resoluciones DIAN~~, ~~caja sin
@@ -255,15 +263,52 @@ por fase, probado y commiteado antes de avanzar. Nada a "hecho" sin su test.
   entrada/merma/ajuste, kardex, detalle de venta, resoluciones DIAN, historial de
   cajas). El stock sigue sin editarse a mano (solo por movimientos).
 - `InvoiceResolutionRead` expone `last_numero` (cuántos documentos fiscales se han
-  emitido) a cualquier admin. Aceptable en portafolio; en producción separar un
-  `InvoiceResolutionSummary` sin ese campo para listados (hardening Fase 6 B).
+  emitido) a cualquier admin. **Decisión Fase 6 B.1: se mantiene.** Es admin-only y la
+  UI de facturación lo muestra a propósito ("usados hasta X"); separar un Summary
+  degradaría esa pantalla sin ganancia real. Aceptado y documentado.
 - Edición de resolución: la API solo permite (des)activar (`InvoiceResolutionUpdate`
   = `activa`); para cambiar rangos se crea una nueva (las resoluciones son inmutables).
   La UI refleja esto (crear+activar / activar). OK.
-- Analítica (hardening menor Fase 6): `ByCashierRow` expone `user_id` (admin-only,
-  ok en portafolio; en prod bastaría el nombre). `analytics_service.summary` llama a
+- ~~`ByCashierRow` expone `user_id`~~: **RESUELTO en Fase 6 B.1** (se quitó del DTO;
+  el frontend no lo usaba. Solo viaja el nombre). `analytics_service.summary` llama a
   `costing.margin_bps(subtotal, cogs)` con agregados (aritméticamente correcto pero
   semánticamente la firma es unitaria — vigilar si margin_bps cambia).
+- ~~`PaymentRead.wompi_public_key` viaja al cliente sin usarse~~: **RESUELTO en Fase
+  6 B.1** (se quitó del DTO; el Widget real no está integrado). Cuando se integre, el
+  frontend la pedirá a un endpoint propio.
+
+## Fase 6 parte B.1 — Hardening de seguridad
+- **Secretos requeridos** (`app/core/config.py`): sin defaults en código; arranque
+  ruidoso. `app_env` (development|test|production) gobierna lo sensible al entorno.
+  Guarda extra: en `production`, un `model_validator` RECHAZA los placeholders de demo
+  (`_DEMO_SECRETS`) para que nadie despliegue con secretos públicos conocidos.
+- **DTOs minimizados**: `PaymentRead` sin `wompi_public_key`; `ByCashierRow` sin
+  `user_id`. Barrido confirmado: `UserRead` sin hash; `customer_doc` solo en el
+  detalle de venta (dueño/admin) y ENMASCARADO en analítica (Habeas Data).
+- **Anti-replay del webhook** (`payment_service.process_webhook`): además de la
+  idempotencia por `event_id`, se rechaza (`WebhookReplay` → 400) todo evento fuera de
+  la ventana de frescura (`_WEBHOOK_MAX_AGE_S=300`, skew futuro 60 s). El timestamp va
+  firmado en el checksum; `WebhookEnvelope.timestamp` lo expone. `build_signed_event`
+  usa el tiempo ACTUAL por defecto (mock/simulate generan eventos frescos).
+- **Cabeceras de seguridad** (`app/core/security_headers.py`): `nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, COOP; HSTS solo en
+  producción. CSP es responsabilidad del frontend (Next). CORS sigue acotado a
+  `FRONTEND_ORIGIN`.
+- **Handler global de errores** (`main.py`): los errores NO controlados devuelven
+  `{"detail":"Error interno"}` 500; la traza solo va a logs del servidor (nunca al
+  cliente). No se loguean secretos ni payloads crudos.
+- **Rate limiting** (`app/core/rate_limit.py`): limitador en memoria por IP en
+  `/auth/login` (10/5 min) y `/webhooks/wompi` (60/min). La IP se toma del ÚLTIMO
+  salto de `X-Forwarded-For` (el que añade el PaaS de confianza; el primero lo puede
+  falsear el cliente). Tope de claves (`_MAX_KEYS`) anti-DoS de memoria (fail-closed
+  al saturarse). Mono-instancia (portafolio); en multi-instancia se movería a Redis
+  (misma interfaz). El singleton se resetea entre tests (fixture autouse en `conftest`).
+- **Mensajes genéricos** del webhook: todo rechazo (firma, replay, monto) responde el
+  mismo 400 "Solicitud de webhook inválida"; el motivo no se distingue hacia fuera.
+- **Tests**: `test_config.py` (arranque falla sin secretos), no-filtración en
+  `test_payments.py`/`test_analytics.py`, replay en `test_payments.py`,
+  `test_security_headers.py`, `test_rate_limit.py`, concurrencia REAL en
+  `test_inventory_concurrency.py`. Analítica pro ya corría por HTTP.
 
 ## Contexto de portafolio (orienta Fases 3-6)
 Este es un proyecto de PORTAFOLIO. No habrá credenciales reales de Wompi, del PT de

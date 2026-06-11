@@ -29,13 +29,14 @@ def _setup_wompi_sale(
     return pid, sale, payment
 
 
-def _event(payment: dict, status_str: str) -> dict:
+def _event(payment: dict, status_str: str, *, timestamp: int | None = None) -> dict:
     return build_signed_event(
         transaction_id=payment["wompi_transaction_id"],
         status=status_str,
         referencia=payment["referencia"],
         monto_centavos=payment["monto_centavos"],
         events_secret=settings.wompi_events_secret,
+        timestamp=timestamp,
     )
 
 
@@ -58,6 +59,28 @@ def test_start_payment_idempotente(client: TestClient, admin_headers: dict) -> N
     _pid, sale, payment = _setup_wompi_sale(client, admin_headers)
     again = client.post("/payments", json={"sale_id": sale["id"]}, headers=admin_headers).json()
     assert again["id"] == payment["id"]  # mismo pago, no se duplica
+
+
+def test_payment_dto_no_filtra_llave_ni_secretos(client: TestClient, admin_headers: dict) -> None:
+    """El DTO de pago no expone la llave pública (Widget no integrado) ni secretos.
+
+    Endurecimiento Fase 6 B.1: `wompi_public_key` se quitó del DTO. Y bajo ninguna
+    circunstancia deben salir la llave privada o los secretos de firma.
+    """
+    _pid, sale, payment = _setup_wompi_sale(client, admin_headers)
+    leaked = {
+        "wompi_public_key",
+        "wompi_private_key",
+        "wompi_integrity_secret",
+        "wompi_events_secret",
+    }
+    # POST /payments
+    assert leaked.isdisjoint(payment.keys())
+    # GET /payments/{id} y /payments/by-sale/{id}
+    by_id = client.get(f"/payments/{payment['id']}", headers=admin_headers).json()
+    by_sale = client.get(f"/payments/by-sale/{sale['id']}", headers=admin_headers).json()
+    assert leaked.isdisjoint(by_id.keys())
+    assert leaked.isdisjoint(by_sale.keys())
 
 
 # ---------- Webhook approved ----------
@@ -124,6 +147,48 @@ def test_webhook_firma_invalida_da_400_sin_efecto(client: TestClient, admin_head
     detail = client.get(f"/sales/{sale['id']}", headers=admin_headers).json()
     assert detail["status"] == "pendiente_pago"
     assert detail["invoice"] is None
+
+
+# ---------- Anti-replay por timestamp (Fase 6 B.1) ----------
+
+
+def test_webhook_replay_viejo_da_400_sin_efecto(client: TestClient, admin_headers: dict) -> None:
+    """Un evento con firma válida pero más viejo que la ventana se rechaza (replay)."""
+    import time
+
+    _pid, sale, payment = _setup_wompi_sale(client, admin_headers)
+    # Firmado correctamente, pero con timestamp de hace 10 minutos (> 5 min).
+    viejo = _event(payment, "APPROVED", timestamp=int(time.time()) - 600)
+    res = client.post("/webhooks/wompi", json=viejo)
+    assert res.status_code == 400
+    # Sin efecto: la venta sigue pendiente_pago, sin factura.
+    detail = client.get(f"/sales/{sale['id']}", headers=admin_headers).json()
+    assert detail["status"] == "pendiente_pago"
+    assert detail["invoice"] is None
+
+
+def test_webhook_replay_futuro_da_400(client: TestClient, admin_headers: dict) -> None:
+    """Un evento muy en el futuro (fuera del skew de reloj) también se rechaza."""
+    import time
+
+    _pid, _sale, payment = _setup_wompi_sale(client, admin_headers)
+    futuro = _event(payment, "APPROVED", timestamp=int(time.time()) + 600)
+    assert client.post("/webhooks/wompi", json=futuro).status_code == 400
+
+
+def test_webhook_replay_no_consume_idempotencia(client: TestClient, admin_headers: dict) -> None:
+    """Rechazar un replay viejo no quema la clave de idempotencia: el evento fresco
+    (mismo event_id) luego sí procesa."""
+    import time
+
+    _pid, sale, payment = _setup_wompi_sale(client, admin_headers)
+    viejo = _event(payment, "APPROVED", timestamp=int(time.time()) - 600)
+    assert client.post("/webhooks/wompi", json=viejo).status_code == 400
+    # El mismo evento, ahora fresco, debe procesar normalmente.
+    fresco = _event(payment, "APPROVED")
+    assert client.post("/webhooks/wompi", json=fresco).status_code == 200
+    detail = client.get(f"/sales/{sale['id']}", headers=admin_headers).json()
+    assert detail["status"] == "pagada"
 
 
 # ---------- Webhook declined: reverso de stock, sin número ----------

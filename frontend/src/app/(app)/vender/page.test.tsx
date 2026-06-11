@@ -160,7 +160,7 @@ describe("VenderPage", () => {
     apiPostMock.mockImplementation(async (path: string) => {
       if (path === "sales") return ventaPendiente;
       if (path === "payments")
-        return { id: 99, sale_id: 7, provider: "mock", metodo: "tarjeta", status: "pending", monto_centavos: 119000, referencia: "SALE-000007", wompi_transaction_id: "mock-tx-1", wompi_public_key: "pub_test" };
+        return { id: 99, sale_id: 7, provider: "mock", metodo: "tarjeta", status: "pending", monto_centavos: 119000, referencia: "SALE-000007", wompi_transaction_id: "mock-tx-1" };
       return { ok: true }; // simulate
     });
     apiGetMock.mockImplementation(async (path: string) => {
@@ -192,7 +192,7 @@ describe("VenderPage", () => {
       if (path === "sales")
         return { id: 8, subtotal_centavos: 100000, iva_total_centavos: 19000, total_centavos: 119000, status: "pendiente_pago", metodo_pago: "nequi", paid_at: null, created_at: "x", items: [], invoice: null };
       if (path === "payments")
-        return { id: 100, sale_id: 8, provider: "mock", metodo: "nequi", status: "pending", monto_centavos: 119000, referencia: "SALE-000008", wompi_transaction_id: "mock-tx-2", wompi_public_key: null };
+        return { id: 100, sale_id: 8, provider: "mock", metodo: "nequi", status: "pending", monto_centavos: 119000, referencia: "SALE-000008", wompi_transaction_id: "mock-tx-2" };
       return { ok: true };
     });
 

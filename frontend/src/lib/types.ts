@@ -130,7 +130,6 @@ export interface PaymentRead {
   monto_centavos: number;
   referencia: string;
   wompi_transaction_id: string | null;
-  wompi_public_key: string | null;
 }
 
 export interface CashSession {

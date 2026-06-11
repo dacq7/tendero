@@ -7,7 +7,6 @@ Permisos: cajero/admin inician y consultan el pago de SUS ventas. El endpoint
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from app.core.config import settings
 from app.core.deps import require_role
 from app.db.session import get_session
 from app.models.payment import PaymentProvider
@@ -24,7 +23,7 @@ _staff = require_role(UserRole.admin, UserRole.cajero)
 
 
 def _to_read(payment) -> PaymentRead:
-    return PaymentRead(**payment.model_dump(), wompi_public_key=settings.wompi_public_key)
+    return PaymentRead.model_validate(payment)
 
 
 @router.post("", response_model=PaymentRead, status_code=status.HTTP_201_CREATED)
