@@ -40,15 +40,24 @@ Vercel; el navegador nunca llama directo al backend.
    variable `DATABASE_URL` (referenciable con `${{Postgres.DATABASE_URL}}`).
 
 ### 1.2 Build y arranque (ya configurados en el repo)
-No hay que tocar nada de esto; se incluye para que entiendas qué pasa:
-- **`backend/.python-version`** (`3.12`) fija la versión de Python para Nixpacks
-  (el buildpack automático de Railway).
+Railway construye con **Railpack** (su builder por defecto actual; sustituyó a
+Nixpacks). No hay que tocar nada de esto; se incluye para que entiendas qué pasa:
+- **`backend/.python-version`** (`3.12`) fija la versión de Python. Railpack lee este
+  archivo (mise-compatible). Alternativa equivalente: la variable de entorno
+  `RAILPACK_PYTHON_VERSION=3.12` en el panel.
 - **`backend/requirements.txt`** trae las dependencias. `psycopg-binary` evita
   compilar nada (wheels precompiladas) — por eso no hace falta Dockerfile.
-- **`backend/railway.json`** define el arranque: `sh start.sh`.
-- **`backend/start.sh`** corre **`alembic upgrade head`** (migra el esquema) y luego
-  **`uvicorn app.main:app --host 0.0.0.0 --port $PORT`**. Si la migración falla, el
-  server NO arranca (deploy ruidoso). Railway inyecta `$PORT`.
+- **`backend/railway.json`** fija `builder: RAILPACK` y define el arranque **inline**:
+  ```
+  alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8020}
+  ```
+  Migra el esquema y, solo si eso tiene éxito (`&&`), sirve. Railway inyecta `$PORT`.
+- **¿Por qué inline y no `sh start.sh`?** Railpack arma la imagen de runtime con
+  **copiado selectivo** de archivos: un script suelto (`start.sh`) puede no quedar en
+  esa imagen (daba `sh: cannot open start.sh: No such file`). El comando inline
+  depende solo de binarios en PATH (`alembic`, `uvicorn`) y del código de la app, que
+  Railpack siempre incluye. `backend/start.sh` se conserva como atajo para correr el
+  mismo flujo **en local** (`sh start.sh`), pero Railway NO lo usa.
 
 ### 1.3 Variables de entorno (Railway → Variables)
 | Variable | Valor | Nota |

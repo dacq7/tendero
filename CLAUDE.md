@@ -29,12 +29,15 @@ navegador real contra el stack completo (login/roles, venta efectivo→ticket, W
 mock aprobado/rechazado, caja+arqueo, emisión DIAN+CUFE, inventario CRUD/kardex/stock
 no editable, dashboard de analítica), con base AISLADA `tendero_e2e` y puertos
 dedicados (8021/3002). Fase 6 parte B.3 paso 1 (PREP DE DEPLOY) COMPLETA: backend
-listo para Railway (`start.sh` migra+sirve leyendo `$PORT`/host 0.0.0.0, `railway.json`
-con Nixpacks, `.python-version`), CORS multi-origen (`FRONTEND_ORIGIN` admite lista
-por comas → `settings.frontend_origins`), normalización del driver de `DATABASE_URL`
-(`postgresql://`→`postgresql+psycopg://`), y `DEPLOY.md` (guía Railway+Vercel). El
-frontend ya estaba listo (BFF lee `BACKEND_URL` server-only; cookies `secure` por
-`NODE_ENV`). Queda el deploy en sí (lo hace el usuario en los paneles) — ver Pendientes.
+listo para Railway con builder **Railpack** (`railway.json` fija `builder=RAILPACK` y
+el arranque INLINE `alembic upgrade head && uvicorn ... --host 0.0.0.0 --port $PORT`;
+NO un script suelto, que Railpack puede no incluir en la imagen de runtime —
+`start.sh` queda solo como atajo local; `.python-version`=3.12 lo lee Railpack),
+CORS multi-origen (`FRONTEND_ORIGIN` admite lista por comas → `settings.frontend_origins`),
+normalización del driver de `DATABASE_URL` (`postgresql://`→`postgresql+psycopg://`),
+y `DEPLOY.md` (guía Railway+Vercel). El frontend ya estaba listo (BFF lee `BACKEND_URL`
+server-only; cookies `secure` por `NODE_ENV`). Queda el deploy en sí (lo hace el
+usuario en los paneles) — ver Pendientes.
 NOTA: la analítica es de NEGOCIO, no contabilidad formal; "utilidad" = utilidad
 bruta operativa estimada (venta − costo CMP), no estados financieros NIIF.
 

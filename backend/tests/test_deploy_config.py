@@ -29,11 +29,21 @@ def test_start_sh_migra_y_lee_puerto_de_railway() -> None:
 
 def test_python_version_fija_312() -> None:
     pv = BACKEND_DIR / ".python-version"
-    assert pv.exists(), "Falta backend/.python-version (Nixpacks elige la versión)."
+    # Railpack lee `.python-version` (mise-compatible) para fijar la versión.
+    assert pv.exists(), "Falta backend/.python-version (Railpack elige la versión)."
     assert pv.read_text().strip() == "3.12"
 
 
-def test_railway_json_arranca_con_start_sh() -> None:
+def test_railway_json_railpack_con_arranque_inline() -> None:
+    """Railway usa Railpack; el arranque va INLINE en railway.json (no un script
+    suelto, que Railpack puede no incluir en la imagen de runtime). Debe migrar
+    antes de servir y leer $PORT en 0.0.0.0."""
     cfg = json.loads((BACKEND_DIR / "railway.json").read_text())
-    assert cfg["deploy"]["startCommand"] == "sh start.sh"
-    assert cfg["build"]["builder"] == "NIXPACKS"
+    assert cfg["build"]["builder"] == "RAILPACK"
+    start = cfg["deploy"]["startCommand"]
+    assert "alembic upgrade head" in start
+    assert "uvicorn app.main:app" in start
+    assert "0.0.0.0" in start
+    assert "${PORT" in start
+    # No depende de un script suelto (la causa del fallo original en Railpack).
+    assert "start.sh" not in start
